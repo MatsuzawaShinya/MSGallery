@@ -1,0 +1,74 @@
+{
+    "default" : {
+        "order" : -99,
+        "start" : "False",
+        "name"  : "DEFAULT",
+        "size"  : [300,300],
+        "drop"  : "False",
+        "windowFlag" : "default"
+    },
+    "zzTemplateData" : {
+        "order"  : -98,
+        "start"  : "False",
+        "name"   : "ZzTemplateData",
+        "size"   : [400,400],
+        "drop"   : "False",
+        "windowFlag" : "default"
+    },
+    "mastema" : {
+        "order"  : -1,
+        "start"  : "False",
+        "name"   : "Mastema",
+        "size"   : [320,240],
+        "drop"   : "False",
+        "windowFlag" : "tophint=True"
+    },
+    "imageExporter" : {
+        "order"  : 10,
+        "start"  : "True",
+        "name"   : "ImageExporter",
+        "size"   : [280,250],
+        "drop"   : "True",
+        "windowFlag" : "default"
+    },
+    "zipCreater" : {
+        "order"  : 20,
+        "start"  : "True",
+        "name"   : "ZipCreater",
+        "size"   : [250,270],
+        "drop"   : "True",
+        "windowFlag" : "default"
+    },
+    "renamer" : {
+        "order"  : 30,
+        "start"  : "True",
+        "name"   : "Renamer",
+        "size"   : [500,600],
+        "drop"   : "True",
+        "windowFlag" : "default"
+    },
+    "executePython" : {
+        "order"  : 40,
+        "start"  : "True",
+        "name"   : "ExecutePython",
+        "size"   : [300,300],
+        "drop"   : "True",
+        "windowFlag" : "default"
+    },
+    "webImageDownloader" : {
+        "order"  : 50,
+        "start"  : "True",
+        "name"   : "WebImageDownloader",
+        "size"   : [300,300],
+        "drop"   : "True",
+        "windowFlag" : "default"
+    },
+    "createWorkHierarchy" : {
+        "order"  : 60,
+        "start"  : "False",
+        "name"   : "CreateWorkHierarchy",
+        "size"   : [300,300],
+        "drop"   : "True",
+        "windowFlag" : "default"
+    }
+}

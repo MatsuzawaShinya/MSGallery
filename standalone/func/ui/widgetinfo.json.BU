@@ -1,0 +1,101 @@
+{
+    "createWorkHierarchy": {
+        "drop": "True",
+        "name": "CreateWorkHierarchy",
+        "order": 50,
+        "size": [
+            400,
+            400
+        ],
+        "start": "True",
+        "windowFlag": "default"
+    },
+    "default": {
+        "drop": "False",
+        "name": "DEFAULT",
+        "order": -99,
+        "size": [
+            300,
+            300
+        ],
+        "start": "False",
+        "windowFlag": "default"
+    },
+    "executePython": {
+        "drop": "True",
+        "name": "ExecutePython",
+        "order": 40,
+        "size": [
+            300,
+            300
+        ],
+        "start": "True",
+        "windowFlag": "default"
+    },
+    "imageExporter": {
+        "drop": "True",
+        "name": "ImageExporter",
+        "order": 10,
+        "size": [
+            280,
+            250
+        ],
+        "start": "True",
+        "windowFlag": "default"
+    },
+    "mastema": {
+        "drop": "False",
+        "name": "Mastema",
+        "order": -1,
+        "size": [
+            320,
+            240
+        ],
+        "start": "False",
+        "windowFlag": "tophint=True"
+    },
+    "renamer": {
+        "drop": "True",
+        "name": "Renamer",
+        "order": 30,
+        "size": [
+            500,
+            600
+        ],
+        "start": "True",
+        "windowFlag": "default"
+    },
+    "webImageDownloader": {
+        "drop": "True",
+        "name": "WebImageDownloader",
+        "order": 50,
+        "size": [
+            300,
+            300
+        ],
+        "start": "True",
+        "windowFlag": "default"
+    },
+    "zipCreater": {
+        "drop": "True",
+        "name": "ZipCreater",
+        "order": 20,
+        "size": [
+            250,
+            270
+        ],
+        "start": "True",
+        "windowFlag": "default"
+    },
+    "zzTemplateData": {
+        "drop": "True",
+        "name": "ZzTemplateData",
+        "order": -95,
+        "size": [
+            400,
+            400
+        ],
+        "start": "True",
+        "windowFlag": "default"
+    }
+}

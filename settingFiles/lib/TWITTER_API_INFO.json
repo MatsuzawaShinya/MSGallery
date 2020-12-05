@@ -1,0 +1,13 @@
+{
+    "CK"                  : "L6jhgQX0vSeGATuNxNzsAiSla",
+    "CONSUMER_KEY"        : "L6jhgQX0vSeGATuNxNzsAiSla",
+    "CS"                  : "XLMWbQsvgTnIZRnpy3oSR6ZEGR2S7vSLk1BnZuf8LFTaV7oaH3",
+    "CONSUMER_SECRET"     : "XLMWbQsvgTnIZRnpy3oSR6ZEGR2S7vSLk1BnZuf8LFTaV7oaH3",
+    "AT"                  : "1017549694971441152-Qv08JPGx4YUNDXtISW01UEJxiwE4Sp",
+    "ACCESS_TOKEN"        : "1017549694971441152-Qv08JPGx4YUNDXtISW01UEJxiwE4Sp",
+    "ATS"                 : "jokUW3468mWiVcpM1mL9IhBRZqMOfiXn2qfRfeOrC68Qx",
+    "ACCESS_TOKEN_SECRET" : "jokUW3468mWiVcpM1mL9IhBRZqMOfiXn2qfRfeOrC68Qx",
+    "help" : "key=[CK,CS,AT,ATS]",
+    "HELP" : "key=[CONSUMER_KEY,CONSUMER_SECRET,ACCESS_TOKEN,ACCESS_TOKEN_SECRET]",
+    "DEF"  : "--- default ---"
+}
