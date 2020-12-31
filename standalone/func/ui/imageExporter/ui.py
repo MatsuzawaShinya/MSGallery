@@ -38,41 +38,10 @@ _epd              = fc._epd
 _SPSL             = fc._SPSL
 
 ###############################################################################
+## sub func
+
+###############################################################################
 ## sub class
-
-class KeyEstimationOperation(object):
-    r"""
-        推定予測キー操作のマスタークラス
-    """
-    def __init__(self):
-        r"""
-        """
-        self.__keyEstimationPath = None
-        self.__beforePath = None
-
-    def setBeforePath(self,actionflag=True,path=''):
-        r"""
-            ベースパスをグローバス変数にセット
-            True  : _SPSL.getPath()のパスを__beforePathセットし
-                    新しいパスを_SPSLにセット
-                    getPath()で取得できなかった場合は処理しない
-            False : __beforePathにセットされているパスを_SPSLに再セット
-                    パスが__beforePathに指定されていない場合は処理しない
-        """
-        if actionflag:
-            if not path:
-                return
-            gp = _SPSL.getPath()
-            self.__beforePath = gp if gp else None
-            _SPSL.setPath(path)
-        else:
-            if not self.__beforePath:
-                return
-            _SPSL.setPath(self.__beforePath)
-
-KEO = KeyEstimationOperation()
-
-## ----------------------------------------------------------------------------
 
 class OptionInfoData(sg.sgwidget.OptionInfoMasterdataClass):
     r"""
@@ -152,6 +121,13 @@ class MenuListView(sg.ListView):
     ## ------------------------------------------------------------------------
     ## event
     
+    def mousePressEvent(self,event):
+        r"""
+            メニュー項目をマウスで押したときのイベント
+        """
+        super(MenuListView,self).mousePressEvent(event)
+        # self.setSpinboxFocus()
+    
     def keyPressEvent(self,event):
         r"""
             キープレスイベント
@@ -161,10 +137,12 @@ class MenuListView(sg.ListView):
         key   = self.getKeyType(event)
         mask  = self.getKeyMask()
         mask2 = self.getKeyMask2()
-        if key['press'] in ('Del','Backspace'):
+        if key['press'] in ['Del','Backspace']:
             self.removeMenuItem()
-        if key['press'] in ('Up','Down'):
+        elif key['press'] in ['Up','Down']:
             self.moveCurrentIndexUpdate()
+        elif key['press'] in ['Right']:
+            self.setSpinboxFocus()
             
     ## ------------------------------------------------------------------------
     ## func
@@ -225,15 +203,85 @@ class MenuListView(sg.ListView):
         """
         self.getSelfObj().menuValueReflect()
     
+    def connectFocusWidget(self,widget):
+        r"""
+            メニューと連携してフォーカスを当てるウィジェットをセット
+        """
+        self.__focuswidget = widget
+    
+    def setSpinboxFocus(self):
+        r"""
+            メニューを選択された際に実行されるフォーカスセットメソッド
+        """
+        self.__focuswidget.setFocus()
+    
+class SpinBox(QtWidgets.QSpinBox):
+    r"""
+        QSpinBox拡張クラス
+    """
+    KEYMETHOD = sg.KeyMethod()
+    
+    def __init__(self,parent=None):
+        r"""
+        """
+        super(SpinBox,self).__init__(parent)
+    
+    ## ------------------------------------------------------------------------
+    ## event
+    
+    def keyPressEvent(self,event):
+        r"""
+           ←→キーでウィジェットを行き来するキーイベント設定
+        """
+        super(SpinBox,self).keyPressEvent(event)
+        
+        _key   = self.KEYMETHOD._keyType(event)
+        _mask  = self.KEYMETHOD._keyMask()
+        _mask2 = self.KEYMETHOD._keyMask2()
+        
+        if _key['press'] in ('Left'):
+            self.setListMenuFocus()
+    
+    ## ------------------------------------------------------------------------
+    ## func
+    
+    def connectFocusWidget(self,widget):
+        r"""
+            メニューと連携してフォーカスを当てるウィジェットをセット
+        """
+        self.__focuswidget = widget
+    
+    def setListMenuFocus(self):
+        r"""
+            メニューを選択された際に実行されるフォーカスセットメソッド
+        """
+        self.__focuswidget.setFocus()
+        
 ###############################################################################
     
 class PrefSettingWidgetMain(sg.ScrolledWidget):
     r"""
         prefセッティング構成メイン部分
     """
-    saveDict = None
-    sortList = None
-    
+    def __init__(self,parent=None):
+        r"""
+        """
+        self.saveDict = None
+        self.sortList = None
+        self.__nowSelectMenuItem  = None
+        self.__separator          = ':'
+        self.__updateJsonDataDict = {}
+        
+        # buildUI/実行
+        super(PrefSettingWidgetMain,self).__init__(parent)
+        
+        # _SPSL.getJsonEstimationData('ui')で取得し
+        # setUpdateJsonData('ui')とsetNowDataにセットする際は別々に関数を
+        # 実行しセットする。(変数に代入すると同一の扱いで数値が同期してしまう
+        _SPSL.setBeforeEstimationInfo()
+        self.setNowData(_SPSL.getJsonEstimationData('ui'))
+        self.menuUpdate()
+        
     def buildUI(self,parent=None):
         r"""
             レイアウトのオーバーライド用関数
@@ -259,7 +307,7 @@ class PrefSettingWidgetMain(sg.ScrolledWidget):
         self.menuName  = QtWidgets.QLabel('')
         self.menuName.setStyleSheet('QLabel{background-color:#181818;}')
         self.menuName.setContentsMargins(2,2,2,2)
-        self.menuValue = QtWidgets.QSpinBox()
+        self.menuValue = SpinBox()
         self.menuValue.setMaximum(99999)
         self.menuValue.valueChanged.connect(self.spinBoxChanged)
         refresh_btn    = QtWidgets.QPushButton('refresh')
@@ -283,11 +331,12 @@ class PrefSettingWidgetMain(sg.ScrolledWidget):
         remove_btn.clicked.connect (self.removeMenuItem)
         update_btn.clicked.connect (self.updateJsonData)
         
-        self.setNowData(fc.getJsonEstimationData())
-        self.menuUpdate()
+        # add
+        self.menuList.connectFocusWidget(self.menuValue)
+        self.menuValue.connectFocusWidget(self.menuList)
     
     ## ------------------------------------------------------------------------
-    ## func
+    ## setting func
     
     def setNowData(self,dict):
         r"""
@@ -296,7 +345,7 @@ class PrefSettingWidgetMain(sg.ScrolledWidget):
         self.saveDict = dict
         self.sortList = sorted(
             self.saveDict.items(),reverse=True,key=(lambda x:x[1]))
-    
+
     def getNowData(self):
         r"""
             辞書データを取得
@@ -307,18 +356,57 @@ class PrefSettingWidgetMain(sg.ScrolledWidget):
         r"""
             辞書内容を反映保存
         """
-        dict = self.getNowData()[0]
-        if dict:
-            masterDict = _SPSL.getJsonFile()
-            masterDict.update({_estimation:dict})
-            _SPSL.setDict(masterDict)
-            _SPSL.setJsonFile()
+        savedict_master = _SPSL.getJsonEstimationData('master')
+        savedict_ui     = _SPSL.getJsonEstimationData('ui')
+        first_d = _SPSL.getUpdateJsonData().get('before').get('ui')
+        end_d   = self.getNowData()[0]
+        
+        # 重複/削除キーを取得
+        intersection_keys         = first_d.keys() & end_d.keys()
+        symmetric_difference_keys = first_d.keys() ^ end_d.keys()
+        
+        for key in first_d.keys():
+            f_value = first_d.get(key)
+            e_value = end_d.get(key)
+            
+            # 削除されたキーアイテムの処理
+            if key in symmetric_difference_keys:
+                e_value = 0
+                del savedict_ui[key]
+            # 重複(値が変更された場合)の処理
+            elif key in intersection_keys:
+                savedict_ui.update({key:e_value})
+            else:
+                raise RuntimeError(
+                    u'!! Abnormal key detected <{}> !!'.format(key))
+            
+            cal_result = (e_value - f_value)
+            
+            # 数値に変動がなければスキップ
+            if f_value == e_value:
+                continue
+            m_value = savedict_master.get(key)
+            if not m_value or not isinstance(m_value, int):
+                continue
+            
+            cal_val = (m_value + cal_result)
+            savedict_master.update({key:cal_val})
+            
+            print(u'<{}> Difference value ({})'.format(key,cal_result))
+            print(u'\tMaster {} -> {}'.format(m_value,cal_val))
+            print(u'\tUI     {} -> {}'.format(f_value,e_value))
+            print()
+        
+        _SPSL.setJsonEstimationData(savedict_master,savedict_ui)
+        
+        # 実行したら初期に格納した辞書データを更新
+        _SPSL.setBeforeEstimationInfo()
     
     def menuUpdate_fromBtn(self):
         r"""
             ボタンからのメニューアップデート
         """
-        self.setNowData(fc.getJsonEstimationData())
+        self.setNowData(_SPSL.getJsonEstimationData('ui'))
         self.menuUpdate()
     
     def menuUpdate(self):
@@ -330,7 +418,8 @@ class PrefSettingWidgetMain(sg.ScrolledWidget):
         rootItem = model.invisibleRootItem()
         
         for s in self.getNowData()[1]:
-            item = QtGui.QStandardItem('{}:{}'.format(s[0],s[1]))
+            item = QtGui.QStandardItem('{}{}{}'.format(
+                s[0],self.__separator,s[1]))
             rootItem.setChild(rootItem.rowCount(),0,item)
         
     def menuValueReflect(self):
@@ -339,9 +428,9 @@ class PrefSettingWidgetMain(sg.ScrolledWidget):
         """
         nowmenu = self.menuList.nowSelect()
         nowstr  = self.menuList.nowSelectItem()
-        if not nowstr or not nowmenu:
+        if not nowstr or not nowmenu or nowstr[0] is None:
             return
-        sp = nowstr[0].split(':')
+        sp = nowstr[0].split(self.__separator)
         self.menuName.setText(str(sp[0]))
         self.menuValue.setValue(int(sp[1]))
         self.menuList.setCurrentIndex(nowmenu[0])
@@ -356,16 +445,28 @@ class PrefSettingWidgetMain(sg.ScrolledWidget):
         r"""
             スピンボックスからの変更関数
         """
-        data = self.menuList.nowSelectItem() # 選択アイテムの取得
+        # 選択アイテムの取得
+        data = self.menuList.nowSelectItem()
         if not data:
             return
+        
+        # data[0] = None だった場合,マスター変数から値を取得し
+        # それ以外(初回起動時など)はマスター変数に格納されている情報を代入
+        if not data[0]:
+            data = self.__nowSelectMenuItem
+        else:
+            self.__nowSelectMenuItem = data
+        
         menudict    = self.getNowData()[0]
-        nowmenu     = self.menuList.nowSelect() # 選択位置の取得
-        newDataName = data[0].split(':')[0] if data else ''
+        # 選択位置の取得(※このタイミングで実行すること！)
+        nowmenu     = self.menuList.nowSelect()
+        newDataName = (data[0].split(self.__separator)[0]
+            if data and not data[0] is None else '')
         
         # 変更した値で辞書を更新
-        menudict.update({newDataName:value})
-        self.setNowData(menudict)
+        if newDataName:
+            menudict.update({newDataName:value})
+            self.setNowData(menudict)
         menuList = self.getNowData()[1]
         self.menuUpdate()
         
@@ -562,7 +663,7 @@ class EditNameWidget(sg.EventBaseWidget):
                 if len(self._SKLJ.getSaveKey())==0:
                     self._SKLJ.setStartTime()
                 self._SKLJ.addSaveKey(_key['press'])
-        elif _key['press'] in ['Up','Down']:
+        elif _key['press'] in ['Up','Down','Left','Right']:
             if not self._SV.isHidden():
                 self._SV.keyPressEvent(event)
         elif _key['press'] in ['Enter','Return']:
@@ -660,7 +761,7 @@ class EditNameWidget(sg.EventBaseWidget):
         obj = self.getObject()
         obj.nameEditReflect()
     
-    def textChange(self,text,line=-1,menuFlag=True,suggestFlag=True):
+    def textChange(self,text='',line=-1,menuFlag=True,suggestFlag=True):
         r"""
             テキスト変更時の動作
         """
@@ -686,90 +787,31 @@ class EditNameWidget(sg.EventBaseWidget):
         # connect設定時の動作
         # self.__cbList[1].setChecked(True if c else False)
         
+        self.allReflect()
+        
         if menuFlag:
             self.estimationMenu(self.sender())
-            
-        self.allReflect()
         if suggestFlag:
-            self.suggestSetting()
-    
-    def suggestSetting(self):
-        r"""
-            テキスト変更時のサジェストセッティング
-        """
-        now_textLine = self.__leList[self.line_num]
-        
-        # アイテムをセット
-        saveDict = fc.getJsonEstimationData()
-        sortList = sorted(saveDict.items(),reverse=True,key=(lambda x:x[1]))
-        pickList = []
-        for s in sortList:
-            input = now_textLine.text()
-            if not input:
-                continue
-            word  = s[0]
-            # 1文字の場合は正規表現固有の文字に引っかからないように処理を加える
-            re_input = (input if len(input)>=2 else '[{}]'.format(input))
-            if re.search(re_input,word):
-                pickList.append(word)
-                continue
-        # 何も入力されていない/ピックリストがないなら非表示に
-        if not now_textLine.text() or not pickList:
-            self._SV.exeHide()
-            return
-        
-        self._SV.createListItem(pickList)
-        
-        """
-        # ウィジェット位置/サジェスト表示/フォーカスを入力textEditに指定
-        cursor_pos    = self.mapToGlobal(
-            now_textLine.cursorRect().bottomRight())
-        lineedit_post = self.mapToGlobal(now_textLine.pos())
-        self._SV.move(
-            # 横位置調整
-            (cursor_pos.x()-(cursor_pos.x()-lineedit_post.x()+(-110))+
-                # ウィジェット横位置サイズに合わせた微調整
-                ((self.rect().width()-self.baseRect[0])*0.6)),
-            # 縦位置調整
-            (cursor_pos.y()-(cursor_pos.y()-lineedit_post.y()+(+0)))
-        )
-        """
-        self.moveGui(now_textLine)
-        self._SV.exeShow()
-        # ウィンドウフォーカスは常にテキストラインに固定
-        now_textLine.setFocus()
-        now_textLine.activateWindow()
+            self._SV.setTextLineWidget(self.__leList[self.line_num])
+            self._SV.setSuggestItemList(sorted(
+                _SPSL.getJsonEstimationData('sum').items(),
+                reverse=True,key=(lambda x:x[1])))
+            self._SV.eachMovePositioning(self.moveGui)
+            self._SV.suggestSetting()
     
     def suggestInsert(self):
         r"""
             サジェスト(Enter/Return)時の動作
         """
-        listAll = self._SV.getQModelIndexList()
-        if not listAll or self._SV.isHidden():
-            return
-            
-        # ↓↑キーで移動した際はmodelIndexが正常に取得できないため
-        # selectionModel.model()経由でインデックス位置を探知しネームを取得する
-        #   ※ クリック選択は問題なく取得される
-        now = listAll.data()
-        if not now:
-            _model = self._SV.getListView().selectionModel().model()
-            _index = listAll.row()
-            now = str(_model.item(_index,0).data(0))
-        
-        try:
-            now_textLine = self.__leList[self.line_num]
-            now_textLine.setText(now)
-            self.textChange(now,suggestFlag=False)
-            self._SV.exeHide()
-        except:
-            traceback.print_exc()
+        self._SV.suggestInsert()
+        # 入力されたテキスト情報をメインUIへ更新する
+        self.allReflect()
             
     def estimationAllMenu(self):
         r"""
             予測変換の標準右クリックメニュー：一覧
         """
-        saveDict = fc.getJsonEstimationData()
+        saveDict = _SPSL.getJsonEstimationData('sum')
         sortList = sorted(saveDict.items(),reverse=True,key=(lambda x:x[1]))
 
         menu = QtWidgets.QMenu()
@@ -787,16 +829,13 @@ class EditNameWidget(sg.EventBaseWidget):
         """
         s = self.sender()
         self.__leList[s.address[0]].setText(s.nodename)
-        self.textChange(s.nodename,suggestFlag=False)
+        self.textChange(suggestFlag=False)
     
     def estimationMenu(self,selfobj):
         r"""
             予測変換の標準右クリックメニュータイプ式：一覧(現在隠しコマンドに)
-        
-            Args:
-                selfobj (any):
         """
-        saveDict = fc.getJsonEstimationData()
+        saveDict = _SPSL.getJsonEstimationData('sum')
         sortList = (sorted(saveDict.items(),reverse=True,key=(lambda x:x[1]))
             if saveDict else [])
         
@@ -848,7 +887,7 @@ class EditNameWidget(sg.EventBaseWidget):
     
     def moveGui(self,lines):
         r"""
-            ウィジェット位置調整
+            ウィジェット位置調整(SuggestViewでも実行)
         """
         cursor_pos    = self.mapToGlobal(lines.cursorRect().bottomRight())
         lineedit_post = self.mapToGlobal(lines.pos())
@@ -949,8 +988,6 @@ class ExportLineWidget(QtWidgets.QWidget):
         _key   = self.KEYMETHOD._keyType(event)
         _mask  = self.KEYMETHOD._keyMask()
         _mask2 = self.KEYMETHOD._keyMask2()
-        # _key   = sg._keyType(event)
-        # _mask2 = sg._keyMask2
         
         if   _key['press'] in ('F1','F2'):
             self.keyMoveSetPath(_key['press'])
@@ -958,7 +995,7 @@ class ExportLineWidget(QtWidgets.QWidget):
             self.keyMoveChangePath(_key['press'])
         elif _key['press'] in ('Return','Enter'):
             self.exportImage()
-        elif _key['mod1']==_mask2(['ctrl']) and _key['press'] in ('O',):
+        elif _key['mod1']==_mask2(['ctrl']) and _key['press'] in ['O']:
             self.openDir()
         
     ## ------------------------------------------------------------------------
@@ -1094,12 +1131,6 @@ class ExportLineWidget(QtWidgets.QWidget):
     def keyMoveChangePath(self,keyType=None):
         r"""
             ↑↓キーを押した際に保存されているパスにスライドして切り替える
-            
-            Args:
-                keyType (any):enter description
-                
-            Returns:
-                any:
         """
         obj = self.getObject()
         jsonPath = _SPSL.getPath()
@@ -1133,8 +1164,10 @@ class ExportLineWidget(QtWidgets.QWidget):
             イメージエクスポート関数
         """
         _updateExclusion = {}
-        _d,_nd,_pa = {},self.getNameEdit(),self._paddingAttr
-        
+        _d  = {}
+        _nd = self.getNameEdit()
+        _pa = self._paddingAttr
+
         for nea in self._nameEditAttr:
             _d[nea[0]] = _nd[nea[0]]  if _nd['{}{}'.format(nea[0],_ck)] else ''
             _updateExclusion[nea[0]] = nea[3]
@@ -1152,18 +1185,11 @@ class ExportLineWidget(QtWidgets.QWidget):
         rt_st(st._resultText[0 if path  else 1])
         QtCore.QTimer.singleShot(st._vanishTime,(lambda:rt_st('')))
         
-        STI = sg.SystemTrayIcon(222)
-        STI.setTitle('Executed.')
-        STI.setMsg(path if path else 'No export.')
-        STI.setIcon(1)
-        STI.showMsg()
-        
-        if not path:
-            return
-        
         # save名の回数をアップデート
-        D = _SPSL.getJsonFile()
-        saveDict = D.get(_estimation)
+        saveDict_master = _SPSL.getJsonEstimationData('master')
+        saveDict_ui     = _SPSL.getJsonEstimationData('ui')
+        
+        printmsg = []
         for d in _d:
             # savedictフラグが0以下なら処理を回避
             exc  = _updateExclusion.get(d)
@@ -1172,18 +1198,30 @@ class ExportLineWidget(QtWidgets.QWidget):
             word = _d[d]
             if word=='' or word=='_':
                 continue
-            nownum  = saveDict.get(word)
-            nextnum = nownum+1 if nownum else 1
-            if saveDict:
-                saveDict.update({
-                    word:(nextnum if word in saveDict else 1)})
-            else:
-                saveDict = {word:nextnum}
-            print(u'>> {} = {}->{}'.format(word,nownum,nextnum))
-        D[_estimation] = saveDict
+            
+            # master,ui/それぞれの辞書に更新情報を反映
+            printmsg.append(u'>> {}'.format(word))
+            for type in ['master','ui']:
+                targetdict = eval('saveDict_{}'.format(type))
+                # 取得情報が空（初期状態）の場合は数値を初期値に設定する
+                nownum  = targetdict.get(word) if targetdict else 0
+                nextnum = (nownum + 1) if nownum else 1
+                if targetdict:
+                    targetdict.update({
+                        word:(nextnum if word in targetdict else 1)})
+                else:
+                    targetdict = {word:nextnum}
+                exec('saveDict_{}.update(targetdict)'.format(type))
+                printmsg.append(u'{}\t: {} -> {}'.format(type,nownum,nextnum))
+        print('\n'.join(printmsg))
+                
+        _SPSL.setJsonEstimationData(saveDict_master,saveDict_ui)
         
-        _SPSL.setDict(D)
-        _SPSL.setJsonFile()
+        STI = sg.SystemTrayIcon(1)
+        STI.setTitle('Executed.')
+        STI.setMsg(path if path else 'No export.')
+        STI.setIcon(1)
+        STI.showMsg()
     
     def exportImageSubMenu(self):
         r"""
@@ -1225,6 +1263,7 @@ class ImageExporter(sg.ScrolledWidget):
         r"""
             初期設定
         """
+        self.preSetting()
         super(ImageExporter,self).__init__(parent)
         self._dict = masterDict
         self._ENW  = None
@@ -1250,8 +1289,6 @@ class ImageExporter(sg.ScrolledWidget):
         r"""
             レイアウトのオーバーライド用関数
         """
-        self.preSetting()
-        
         commandLayout = QtWidgets.QHBoxLayout()
         self.putLabel = QtWidgets.QLabel('')
         self.putLabel.setStyleSheet('QLabel{color:#FFF;}')
@@ -1281,7 +1318,7 @@ class ImageExporter(sg.ScrolledWidget):
             __init__設定時の動作をbuildUIで先行して行うための関数
         """
         # AppData/Roaming/msAppTools/<FILENAME>までのパスを設定
-        _SPSL.setSeriesPath(_SPSL.getSavePath(fc.getModuleName()))
+        _SPSL.setSeriesPath(_SPSL.getSaveEachUiPrefPath())
 
     ## ------------------------------------------------------------------------
     ## event

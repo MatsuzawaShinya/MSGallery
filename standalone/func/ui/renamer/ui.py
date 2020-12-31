@@ -27,28 +27,53 @@ from msAppTools.settingFiles import systemGeneral as sg
 QtWidgets,QtCore,QtGui = sg.QtWidgets,sg.QtCore,sg.QtGui
 keymethod = sg.KeyMethod()
 
+_SPSL = fc._SPSL
+
 ## ----------------------------------------------------------------------------
 
 _setResizeMode = ('setResizeMode'
     if sg.getPythonVersion()=='27' else 'setSectionResizeMode')
 
 ###############################################################################
+## sub func
+
+"""
+_SPSL.getJsonEstimationData('sum')
+_SPSL.getJsonEstimationData('master')
+_SPSL.getJsonEstimationData('ui')
+"""
+# print(111,getEstimationInfoData('master'))
+# print(111,_SPSL.getJsonEstimatiaonData())
+
+_SV = sg.SuggestView()
+_SV.exeHide()
+
+###############################################################################
 
 class InputLine(QtWidgets.QLineEdit):
     r"""
-        入力ラインのカスタマイズクラス
+        入力ラインカスタマイズクラス
     """
-    def __init__(self,text,parent=None):
+    def __init__(self,text='',editText=True,parent=None):
         r"""
         """
         super(InputLine,self).__init__(text,parent)
         self.executeMethod = self.__temp
+        
+        self.setTextEnableFlag = editText
+        self.textChanged.connect(self.textChange)
+    
+    ## ----------------------------------------------------
+    ## temp
     
     def __temp(self):
         r"""
             テンプレートメソッド
         """
         print(u'>>> テンプレート用のメソッドを表示しています。')
+    
+    ## ----------------------------------------------------
+    ## setting
     
     def setExecuteMethod(self,m):
         r"""
@@ -72,6 +97,9 @@ class InputLine(QtWidgets.QLineEdit):
             print(u'>>> メソッドを実行出来ませんでした。')
             print(u'\nMethod = {}'.format(self.getExecuteMethod()))
             print
+    
+    ## ----------------------------------------------------
+    ## event
         
     def keyPressEvent(self,event):
         r"""
@@ -83,7 +111,58 @@ class InputLine(QtWidgets.QLineEdit):
         mask2 = keymethod._keyMask2()
         
         if key['press'] in ['Enter','Return']:
-            self.exeExecuteMethod()
+            if not _SV.isHidden():
+                self.suggestInsert()
+            else:
+                self.exeExecuteMethod()
+        elif key['press'] in ['Up','Down','Left','Right']:
+            if not _SV.isHidden():
+                _SV.keyPressEvent(event)
+    
+    ## ----------------------------------------------------
+    ## func
+    
+    def clearText(self):
+        r"""
+            テキストクリア
+        """
+        self.clear()
+    
+    def textChange(self,text):
+        r"""
+            テキストラインが変更された時の挙動
+        """
+        if not self.setTextEnableFlag:
+            return
+        _SV.setTextLineWidget(self)
+        _SV.setSuggestItemList(sorted(
+            _SPSL.getJsonEstimationData('sum').items(),
+            reverse=True,key=(lambda x:x[1])))
+        _SV.eachMovePositioning(self.moveGui)
+        _SV.suggestSetting()
+    
+    def moveGui(self,lines=None,fit=True):
+        r"""
+            ウィジェット位置調整(SuggestViewでも実行)
+        """
+        # 非表示状態のみ位置調整
+        if not _SV.isHidden():
+            return
+            
+        line   = lines if lines else self
+        c_pos  = self.mapToGlobal(self.cursorRect().bottomRight())
+        l_post = self.mapToGlobal(self.pos())
+        ## fit=True /サジェスト表示位置をテキストライン直下に固定
+        ## fit=False/サジェスト表示位置を入力カーソルライン位置に流動指定
+        putx   = (l_post.x()+(-54)) if fit else (c_pos.x()+(-14))
+        puty   = (c_pos.y()+(+2))
+        _SV.move(putx,puty)
+        
+    def suggestInsert(self):
+        r"""
+            サジェスト(Enter/Return)時の動作
+        """
+        _SV.suggestInsert()
     
 ###############################################################################
     
@@ -99,6 +178,9 @@ class TreeView(QtWidgets.QTreeView):
         """
         super(TreeView,self).__init__(parent)
         
+        self.__parentWidget = parent if parent else None
+        
+        self.refrectEstimationData(False)
         self.listInitialize()
         
         self.__firstPathList  = []
@@ -313,30 +395,45 @@ class TreeView(QtWidgets.QTreeView):
         _D = sg.toDecode 
         
         _d = self._changeTextDict
-        _bn,_sc,_re,_pr,_su = '','','','',''
-        _st,_pd,_sp = None,None,None
-        if _d.get('basename'):
-            _bn = _d['basename']
-        if _d.get('start'):
-            _st = _d['start']
-        if _d.get('padding'):
-            _pd = _d['padding']
-        if _d.get('step'):
-            _sp = _d['step']
-        if _d.get('search'):
-            _sc = _d['search']
-        if _d.get('replace'):
-            _re = _d['replace']
-        if _d.get('prefix'):
-            _pr = _d['prefix']
-        if _d.get('suffix'):
-            _su = _d['suffix']
+        _bn = _d['basename'] if _d.get('basename') else ''
+        _st = _d['start']    if _d.get('start')    else None
+        _pd = _d['padding']  if _d.get('padding')  else None
+        _sp = _d['step']     if _d.get('step')     else None
+        _sc = _d['search']   if _d.get('search')   else ''
+        _re = _d['replace']  if _d.get('replace')  else ''
+        _pr = _d['prefix']   if _d.get('prefix')   else ''
+        _su = _d['suffix']   if _d.get('suffix')   else ''
         
         __cb = self.getCheckboxWidgetDict()
         __cb_bn = __cb.get('basename').isChecked()
-        __cb_re = __cb.get('regularExpression').isChecked()
         __cb_rp = __cb.get('replace').isChecked()
+        __cb_re = __cb.get('regularExpression').isChecked()
         __cb_ps = __cb.get('prefixSuffix').isChecked()
+        
+        estimationUpdataInfo = {
+            'basename' : {
+                'variable' : _bn,
+                'enable'   : __cb_bn,
+            },
+            'search' : {
+                'variable' : _sc,
+                'enable'   : __cb_rp,
+                'regexp'   : __cb_re
+            },
+            'replace' : {
+                'variable' : _re,
+                'enable'   : __cb_rp,
+                'regexp'   : __cb_re,
+            },
+            'prefix' : {
+                'variable' : _pr,
+                'enable'   : __cb_ps,
+            },
+            'suffix' : {
+                'variable' : _su,
+                'enable'   : __cb_ps,
+            },
+        }
         
         numberFlag  = True if (_st and _pd and _sp) else False
         try:
@@ -391,6 +488,44 @@ class TreeView(QtWidgets.QTreeView):
             _returnList.append(res_tex)
             if self.debugFlag:
                 print('res_tex =',res_tex)
+        
+        ## estimation情報の更新
+        if self.refrectEstimationData():
+            printmsg = []
+            saveDict_master = _SPSL.getJsonEstimationData('master')
+            saveDict_ui     = _SPSL.getJsonEstimationData('ui')
+            for key,item in estimationUpdataInfo.items():
+                word = _d.get(key)
+                # 各ラインのテキスト情報がない場合はスキップ
+                if not word:
+                    continue
+                # enable=OFFの場合は処理しない
+                if not item.get('enable'):
+                    continue
+                # replace/RegularExpressionが有効の場合は処理をしない
+                if item.get('regexp'):
+                    continue
+                
+                for word in [x for x in word.split('_')]:
+                    if not word or word == '':
+                        continue
+                    printmsg.append(u'>> {}'.format(word))
+                    for type in ['master','ui']:
+                        targetdict = eval('saveDict_{}'.format(type))
+                        nownum  = targetdict.get(word) if targetdict else 0
+                        nextnum = (nownum if nownum else 0) + 1
+                        if targetdict:
+                            targetdict.update({word:nextnum})
+                        else:
+                            targetdict = {word:nextnum}
+                        exec('saveDict_{}.update(targetdict)'.format(type))
+                        printmsg.append(
+                            u'  {}\t: {} -> {}'.format(type,nownum,nextnum))
+            print('\n'.join(printmsg))
+
+            _SPSL.setJsonEstimationData(saveDict_master,saveDict_ui)
+            _SPSL.setBeforeEstimationInfo()
+        
         return _returnList
     
     def cbListUpdate(self,value=None):
@@ -456,6 +591,15 @@ class TreeView(QtWidgets.QTreeView):
         eval('self.header().{}(1,'
              'QtWidgets.QHeaderView.ResizeToContents)'.format(_setResizeMode))
     
+    def refrectEstimationData(self,flag=None):
+        r"""
+            estimationに書き込む際の有効フラグ設定
+        """
+        if isinstance(flag,bool):
+            self.__estimationFlag = flag if isinstance(flag,bool) else False
+        else:
+            return self.__estimationFlag
+    
     def executeRename(self):
         r"""
             リネームの実行
@@ -467,6 +611,7 @@ class TreeView(QtWidgets.QTreeView):
             self.__listCheck()
             __forNums = 0
             numberExecutions = len(self.__firstPathList)
+            
             # 逆順から処理することで昇順名前のリネーム被りを少しでも回避する
             for i in reversed(range(numberExecutions)):
                 src = self.__firstPathList[i]
@@ -476,7 +621,7 @@ class TreeView(QtWidgets.QTreeView):
                     __forNums += 1
                     continue
                 os.rename(src,dst)
-                print(u'Renamed.\n  src = {}\n  dst = {}'.format(src,dst))
+                print(u'+ Renamed.\n  src = {}\n  dst = {}'.format(src,dst))
                 self.removeItem(i)
             
             # 全てコンティニューの(リネーム先の名前があった)場合は処理を抜ける。
@@ -492,7 +637,16 @@ class TreeView(QtWidgets.QTreeView):
             else:
                 _renameLoop()
         
+        self.refrectEstimationData(True)
         _renameLoop()
+        self.refrectEstimationData(False)
+        
+        # Ctrlの押下情報があればテキストラインを初期化
+        _key   = keymethod._keyType(None)
+        _mask  = keymethod._keyMask()
+        _mask2 = keymethod._keyMask2()
+        if _key['mod2']==_mask2(['ctrl']):
+            self.__parentWidget.setLineEditInfo()
         
 ###############################################################################
 
@@ -506,12 +660,28 @@ class Renamer(sg.ScrolledWidget):
         r"""
             初期設定
         """
+        self.preSetting()
+        
         super(Renamer,self).__init__(parent)
+        
         self._dict   = masterDict
         self._parent = parent
     
+        # set/estimation
+        _SPSL.setBeforeEstimationInfo()
+    
     ## ------------------------------------------------------------------------
     ## common parent event setting
+    
+    def setEventPackage(self,packaging):
+        r"""
+            子と関連性をためのメソッドパッケージを親から引き継いで設定する
+        """
+        super(Renamer,self).setEventPackage(packaging)
+        
+        # 親eventと連動
+        if packaging:
+            packaging()['set']('closeEvent',self.exeCloseEventFunc)
     
     ## ------------------------------------------------------------------------
     ## build
@@ -540,10 +710,10 @@ class Renamer(sg.ScrolledWidget):
         
         Q_LABEL = QtWidgets.QLabel
         
-        __textWidgetList     = []
-        __checkboxWidgetDict = {}
-        __labelWidgetList    = []
-        __checkBoxWidgetList = []
+        self.__textWidgetList      = []
+        self.__checkboxWidgetDict  = {}
+        self.__labelWidgetList     = []
+        self.__checkBoxWidgetList  = []
         
         ## --------------------------------------------------------------------
         ## local func
@@ -570,43 +740,43 @@ class Renamer(sg.ScrolledWidget):
         __titleStyle(bn_title)
         bn_checkLayout = QtWidgets.QHBoxLayout()
         self.bn_enableCheck = QtWidgets.QCheckBox('Enable')
-        __checkboxWidgetDict['basename'] = self.bn_enableCheck
+        self.__checkboxWidgetDict['basename'] = self.bn_enableCheck
         bn_checkLayout.addStretch()
         bn_checkLayout.addWidget(self.bn_enableCheck)
         
         bn_editLayout = QtWidgets.QHBoxLayout()
         bn_nameLabel = Q_LABEL('Input name : ')
-        __labelWidgetList.append(bn_nameLabel)
-        self.bn_basenameLine = InputLine('base')
-        self.bn_basenameLine.address = {'type':'basename'}
-        __textWidgetList.append(self.bn_basenameLine)
+        self.__labelWidgetList.append(bn_nameLabel)
+        self.bn_basenameLine = InputLine()
+        self.bn_basenameLine.address = {'type':'basename','initialize':''}
+        self.__textWidgetList.append(self.bn_basenameLine)
         bn_editLayout.addWidget(bn_nameLabel)
         bn_editLayout.addWidget(self.bn_basenameLine)
         
         bn_numberingLayout = QtWidgets.QHBoxLayout()
-        self.startNumLine  = InputLine('1')
-        self.paddingLine   = InputLine('1')
-        self.stepLine      = InputLine('1')
-        self.startNumLine.address = {'type':'start'  }
-        self.paddingLine.address  = {'type':'padding'}
-        self.stepLine.address     = {'type':'step'   }
-        __textWidgetList.append(self.startNumLine)
-        __textWidgetList.append(self.paddingLine)
-        __textWidgetList.append(self.stepLine)
+        self.startNumLine  = InputLine(editText=False)
+        self.paddingLine   = InputLine(editText=False)
+        self.stepLine      = InputLine(editText=False)
+        self.startNumLine.address = {'type':'start'  ,'initialize':'1'}
+        self.paddingLine.address  = {'type':'padding','initialize':'1'}
+        self.stepLine.address     = {'type':'step'   ,'initialize':'1'}
+        self.__textWidgetList.append(self.startNumLine)
+        self.__textWidgetList.append(self.paddingLine)
+        self.__textWidgetList.append(self.stepLine)
         for x in (self.paddingLine,self.stepLine):
             x.setValidator(QtGui.QIntValidator())
         qlabelbuf = Q_LABEL('Start number')
-        __labelWidgetList.append(qlabelbuf)
+        self.__labelWidgetList.append(qlabelbuf)
         bn_numberingLayout.addWidget(qlabelbuf,2)
         bn_numberingLayout.addWidget(self.startNumLine,1)
         bn_numberingLayout.addSpacing(6)
         qlabelbuf = Q_LABEL('Padding')
-        __labelWidgetList.append(qlabelbuf)
+        self.__labelWidgetList.append(qlabelbuf)
         bn_numberingLayout.addWidget(qlabelbuf,2)
         bn_numberingLayout.addWidget(self.paddingLine,1)
         bn_numberingLayout.addSpacing(6)
         qlabelbuf = Q_LABEL('Step')
-        __labelWidgetList.append(qlabelbuf)
+        self.__labelWidgetList.append(qlabelbuf)
         bn_numberingLayout.addWidget(qlabelbuf,2)
         bn_numberingLayout.addWidget(self.stepLine,1)
         
@@ -626,26 +796,26 @@ class Renamer(sg.ScrolledWidget):
         rep_checkLayout = QtWidgets.QHBoxLayout()
         self.rep_regexpCheck = QtWidgets.QCheckBox('Regular Expression')
         self.rep_regexpCheck.setChecked(False)
-        __checkboxWidgetDict['regularExpression'] = self.rep_regexpCheck
+        self.__checkboxWidgetDict['regularExpression'] = self.rep_regexpCheck
         self.rep_enableCheck = QtWidgets.QCheckBox('Enable')
         self.rep_enableCheck.setChecked(True)
-        __checkboxWidgetDict['replace'] = self.rep_enableCheck
+        self.__checkboxWidgetDict['replace'] = self.rep_enableCheck
         rep_checkLayout.addStretch()
         rep_checkLayout.addWidget(self.rep_regexpCheck)
         rep_checkLayout.addWidget(self.rep_enableCheck)
         
         rep_formLayout       = QtWidgets.QFormLayout()
-        self.rep_searchLine  = InputLine('')
-        self.rep_replaceLine = InputLine('')
-        self.rep_searchLine.address  = {'type':'search'}
-        self.rep_replaceLine.address = {'type':'replace'}
-        __textWidgetList.append(self.rep_searchLine)
-        __textWidgetList.append(self.rep_replaceLine)
+        self.rep_searchLine  = InputLine()
+        self.rep_replaceLine = InputLine()
+        self.rep_searchLine.address  = {'type':'search' ,'initialize':''}
+        self.rep_replaceLine.address = {'type':'replace','initialize':''}
+        self.__textWidgetList.append(self.rep_searchLine)
+        self.__textWidgetList.append(self.rep_replaceLine)
         qlabelbuf = Q_LABEL('Search  :')
-        __labelWidgetList.append(qlabelbuf)
+        self.__labelWidgetList.append(qlabelbuf)
         rep_formLayout.addRow(qlabelbuf,self.rep_searchLine)
         qlabelbuf = Q_LABEL('Replace :')
-        __labelWidgetList.append(qlabelbuf)
+        self.__labelWidgetList.append(qlabelbuf)
         rep_formLayout.addRow(qlabelbuf,self.rep_replaceLine)
         
         replaceLayout.addWidget(rep_title)
@@ -661,20 +831,20 @@ class Renamer(sg.ScrolledWidget):
         __titleStyle(ps_title)
         self.ps_enableCheck = QtWidgets.QCheckBox('Enable')
         self.ps_enableCheck.setChecked(True)
-        __checkboxWidgetDict['prefixSuffix'] = self.ps_enableCheck
+        self.__checkboxWidgetDict['prefixSuffix'] = self.ps_enableCheck
         
         ps_formLayout      = QtWidgets.QFormLayout()
-        self.ps_prefixLine = InputLine('')
-        self.ps_suffixLine = InputLine('')
-        self.ps_prefixLine.address = {'type':'prefix'}
-        self.ps_suffixLine.address = {'type':'suffix'}
-        __textWidgetList.append(self.ps_prefixLine)
-        __textWidgetList.append(self.ps_suffixLine)
+        self.ps_prefixLine = InputLine()
+        self.ps_suffixLine = InputLine()
+        self.ps_prefixLine.address = {'type':'prefix','initialize':''}
+        self.ps_suffixLine.address = {'type':'suffix','initialize':''}
+        self.__textWidgetList.append(self.ps_prefixLine)
+        self.__textWidgetList.append(self.ps_suffixLine)
         qlabelbuf = Q_LABEL('Prefix :')
-        __labelWidgetList.append(qlabelbuf)
+        self.__labelWidgetList.append(qlabelbuf)
         ps_formLayout.addRow(qlabelbuf,self.ps_prefixLine)
         qlabelbuf = Q_LABEL('Suffix :')
-        __labelWidgetList.append(qlabelbuf)
+        self.__labelWidgetList.append(qlabelbuf)
         ps_formLayout.addRow(qlabelbuf,self.ps_suffixLine)
         
         presufLayout.addWidget(ps_title)
@@ -684,7 +854,8 @@ class Renamer(sg.ScrolledWidget):
         ## --------------------------------------------------------------------
         ## view
         
-        self._view = TreeView()
+        # self._view = TreeView()
+        self._view = TreeView(self)
         model = QtGui.QStandardItemModel(0,2)
         model.setHeaderData(0,QtCore.Qt.Horizontal,'Before')
         model.setHeaderData(1,QtCore.Qt.Horizontal,'After')
@@ -717,11 +888,14 @@ class Renamer(sg.ScrolledWidget):
         ## --------------------------------------------------------------------
         ## post setting
         
+        # lineEditの入力情報を初期化
+        self.setLineEditInfo()
+        
         # label
-        [__labelStyle(x) for x in __labelWidgetList]
+        [__labelStyle(x) for x in self.__labelWidgetList]
         
         # lineEdit
-        for _t in __textWidgetList:
+        for _t in self.__textWidgetList:
             _t.self     = _t  
             _type,_text = _t.address['type'],_t.text()
             self._view.dictUpdate(_type,_text)
@@ -741,11 +915,11 @@ class Renamer(sg.ScrolledWidget):
                 print
         
         # checkBox
-        self._view.setCheckboxWidgetDict(__checkboxWidgetDict)
-        for _c in __checkboxWidgetDict:
-            __checkboxWidgetDict[_c].toggled.connect(self._view.cbListUpdate)
-            __checkBoxStyle(__checkboxWidgetDict[_c])
-        
+        self._view.setCheckboxWidgetDict(self.__checkboxWidgetDict)
+        for _c in self.__checkboxWidgetDict:
+            self.__checkboxWidgetDict[_c].toggled.connect(self._view.cbListUpdate)
+            __checkBoxStyle(self.__checkboxWidgetDict[_c])
+    
     ## --------------------------------------------------------------------
     ## event
     
@@ -756,8 +930,29 @@ class Renamer(sg.ScrolledWidget):
         super(Renamer,self).resizeEvent(event)
         self.buttonResized(event)
     
+    def exeCloseEventFunc(self):
+        r"""
+            close時に実行するメソッドのクッション関数（親のcloseEventで実行）
+        """
+        # 入力時メインGUIを閉じた際suggestViwを終了する
+        _SV.exeHide()
+    
     ## --------------------------------------------------------------------
     ## setting
+    
+    def preSetting(self):
+        r"""
+            __init__設定時の動作をbuildUIで先行して行うための関数
+        """
+        # AppData/Roaming/msAppTools/<FILENAME>までのパスを設定
+        _SPSL.setSeriesPath(_SPSL.getSaveEachUiPrefPath())
+    
+    def setLineEditInfo(self):
+        r"""
+            ラインエディットの入力情報をセット
+            外部のウィジェットでも実行するため関数化
+        """
+        [_t.setText(_t.address['initialize']) for _t in self.__textWidgetList]
     
     def buttonResized(self,event=None,ratio=60):
         r"""

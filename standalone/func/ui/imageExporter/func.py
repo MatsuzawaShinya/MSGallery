@@ -20,20 +20,6 @@ from ... import settings as st
 from msAppTools.settingFiles import systemGeneral as sg
 
 ###############################################################################
-## base settings
-
-_ck               = '_check'
-_startColumn      = 3
-_menuMaxLimit     = 12
-_path             = 'PATH'
-_estimation       = 'ESTIMATION'
-_startupPath      = 'STARTUPPATH'
-_optionWidget     = 'OPTIONWIDGET'
-_startupLimitTime = 0.98
-_epd              = st._eventPackageDict
-_SPSL             = st.StandalonePathStoreList()
-
-###############################################################################
 ## common func
 
 def getModuleName():
@@ -48,21 +34,31 @@ def getAboutInfo():
     """
     return {
         'title'   : getModuleName(),
-        'version' : '3.0.1',
+        'version' : '4.0.1',
         'author'  : st._author,
         'release' : '2019/04/22',
-        'update'  : '2020/07/14',
+        'update'  : '2020/12/23',
     }
-    
+
+###############################################################################
+## base settings
+
+_ck               = '_check'
+_startColumn      = 3
+_menuMaxLimit     = 12
+_path             = 'PATH'
+_estimation       = st._ESTIMATION
+_startupPath      = 'STARTUPPATH'
+_optionWidget     = 'OPTIONWIDGET'
+_startupLimitTime = 0.98
+_epd              = st._eventPackageDict
+_SPSL             = st.StandalonePathStoreList(getModuleName())
+
+###############################################################################
+## sub class
+
 ###############################################################################
 ## sub func
-
-def getJsonEstimationData():
-    r"""
-        pref.jsonデータのESTIMATIONを取得
-    """
-    d = _SPSL.getJsonFile()
-    return d.get(_estimation)
 
 def getJsonOptionWidget():
     r"""

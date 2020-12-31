@@ -293,19 +293,23 @@ class SetUrlPath(QtWidgets.QTreeView):
         mask  = fc.KEYMETHOD._keyMask()
         mask2 = fc.KEYMETHOD._keyMask2()
         
-        if key['press'] in ['V']:
-            self.pasteUrlData(self.getClipboardText())
-        elif key['mod1']==mask2(['ctrl']) and key['press'] in ['V']:
-            self.pasteUrlData(self.getClipboardText())
-        elif key['mod1']==mask2(['ctrl']) and key['press'] in ['C']:
-            self.getSelectTableItemText(column_urlindex)
-        elif key['mod1']==mask2(['ctrl','shift']) and key['press'] in ['C']:
-            self.getSelectTableItemText(column_dataindex)
-        elif key['mod1']==mask2(['ctrl','shift','alt']) and key['press'] in ['C']:
-            self.getSelectTableItemText()
-        elif key['press'] in ['Del','Backspace']:
-            [self.removeItem(x) for x in self.getSelectItemRow()]
-    
+        if key['mod1']==mask2(['ctrl']):
+            if key['press'] in ['V']:
+                self.pasteUrlData(self.getClipboardText(),True)
+            elif key['press'] in ['C']:
+                self.getSelectTableItemText(column_urlindex)
+        elif key['mod1']==mask2(['ctrl','shift']):
+            if key['press'] in ['C']:
+                self.getSelectTableItemText(column_dataindex)
+        elif key['mod1']==mask2(['ctrl','shift','alt']):
+            if key['press'] in ['C']:
+                self.getSelectTableItemText()
+        else:
+            if key['press'] in ['V']:
+                self.pasteUrlData(self.getClipboardText())
+            elif key['press'] in ['Del','Backspace']:
+                self.reorganizeList(self.getSelectItemRow())
+
     ## ------------------------------------------------------------------------
     ## setting func
     
@@ -468,6 +472,19 @@ class SetUrlPath(QtWidgets.QTreeView):
         _L.sort(reverse=sorted)
         return _L
     
+    def reorganizeList(self,removelist):
+        r"""
+            処理終了後にドロップリストを整理しリストビューを再更新する
+            removelist=list([int,int,,,])/ドロップリストのインデックス配列
+        """
+        for index in sorted(removelist,reverse=True):
+            self.delDropFile(self.getDropFile()[index])
+            self.delCheckBoxStateInfo(index)
+        self.removeAllItem()
+        self.reAddItem()
+        self.reflectDateInformationList()
+        self.updateTable()
+    
     def removeItem(self,index=0):
         r"""
             アイテムの削除
@@ -490,7 +507,7 @@ class SetUrlPath(QtWidgets.QTreeView):
             self.clearDropFile()
         self.updateTable()
     
-    def reAddItem(self,dataInfoClear=False):
+    def reAddItem(self,dataInfoClear=False,ctrlvfkag=False):
         r"""
             編集されたアイテムをビューにセット
         """
@@ -507,11 +524,20 @@ class SetUrlPath(QtWidgets.QTreeView):
             index = i+row
             bufitem = QtGui.QStandardItem('')
             bufitem.setCheckable(True)
-            # QtCore.Qt.Unchecked = 0 
-            # QtCore.Qt.Checked   = 2
+            
+            ## QtCore.Qt.Unchecked = 0, QtCore.Qt.Checked = 2
+            # STATE == 0(初回起動時)とドロップファイル数がSTATEリスト数を
+            # 上回っていた場合は処理をしない。
+            # それ以外は既存の要素毎のSTATEリストとCtrlVフラグを参照しBoolを決定
+            stateoutrange = not len(STATE) > i
+            infouotrange  = not len(INFO)  > i
+            
+            nowStateFlag  = False if STATE == 0 or stateoutrange else STATE[i]
+            keyCtrlVFlag  = True  if stateoutrange and ctrlvfkag else False
             try:
-                bufitem.setCheckState(
-                    QtCore.Qt.Checked if STATE[i] else QtCore.Qt.Unchecked)
+                bufitem.setCheckState(QtCore.Qt.Checked
+                    if (nowStateFlag | (keyCtrlVFlag if INFO[i] else False))
+                    else QtCore.Qt.Unchecked)
             except:
                 bufitem.setCheckState(QtCore.Qt.Unchecked)
             # "model_"+"type名"で変数を指定
@@ -640,7 +666,7 @@ class SetUrlPath(QtWidgets.QTreeView):
             infolist[i] = ((','.join(historyinfo['hit']))
                 if historyinfo.get('hit') else '')
         self.setDataInfo(infolist)
-        
+    
     ## ------------------------------------------------------------------------
     ## execute func
     
@@ -664,7 +690,7 @@ class SetUrlPath(QtWidgets.QTreeView):
         """
         return str(QtGui.QClipboard().text())
     
-    def pasteUrlData(self,data):
+    def pasteUrlData(self,data,ctrlv=False):
         r"""
             クリップボードに保存されたデータをテーブルへ送る
             クッションメソッドで親のショートカット、ボタンから呼ばれる
@@ -672,12 +698,12 @@ class SetUrlPath(QtWidgets.QTreeView):
         # チェックボックスのステート状態をURL挿入前に保存
         # (self.reAddItem前に実行)
         self.setCheckBoxStateInfo()
-        
+
         list = data.split('\n')
-        for d in list:
+        for i,d in enumerate(list):
             if self.checkUrl(d) and not(d in self.getDropFile()):
                 self.insertDropFile(d)
-            self.reAddItem()
+        self.reAddItem(ctrlvfkag=ctrlv)
         
     def insertUrlData(self,datalist):
         r"""
@@ -1024,15 +1050,19 @@ class SetUrlPath(QtWidgets.QTreeView):
                 time.sleep(1)
         
         self.setDataInfo(sendtabledatalist)
-        self.reAddItem(True)
+        self.reAddItem(dataInfoClear=True)
         
         # 処理実行終了時に更新された辞書データを変数に再度保存する
         FLI.setJsonFileLogInfo(savejsondict)
         
         # 保存に成功したカテゴリをツリーから削除
         # 頭から回すとindexがズレるので逆順から処理する
+        ## 2020/12/28(EDIT)
+        ## 一つ一つリストを削除するとアイテム数が多い場合処理に時間が掛かるので
+        ## ドロップリストを整理してからリストを再セットするようにする
+        ## reorganizeListへの引数はindex(int)を格納したリスト
         if rml:
-            [self.removeItem(x) for x in sorted(rml,reverse=True)]
+            self.reorganizeList(rml)
         
         caumsg  = ('> Processing time = {}sec\n'.format(
             round(sum(calculationtime),4)))
@@ -1288,11 +1318,13 @@ class WebImageDownloader(sg.ScrolledWidget):
         mask  = self.getKeyMask()
         mask2 = self.getKeyMask2()
         
-        if key['press'] in ['V']:
-            self.setPasteClipboradInfo()
-        elif key['mod1']==mask2(['ctrl']) and key['press'] in ['V']:
-            self.setPasteClipboradInfo()
-    
+        if key['mod1']==mask2(['ctrl']):
+            if key['press'] in ['V']:
+                self.setPasteClipboradInfo(True)
+        else:
+            if key['press'] in ['V']:
+                self.setPasteClipboradInfo()
+        
     def mouseDoubleClickEvent(self,event):
         r"""
             ダブルクリック時のイベント
@@ -1365,7 +1397,7 @@ class WebImageDownloader(sg.ScrolledWidget):
             __init__設定を先行して行う
         """
         # AppData/Roaming/msAppTools/<FILENAME>までのパスを設定
-        fc.SPSL.setSeriesPath(fc.SPSL.getSavePath(fc.getModuleName()))
+        fc.SPSL.setSeriesPath(fc.SPSL.getSaveEachUiPrefPath())
         
         # 起動時にURL情報の辞書データを変数に保存
         FLI.setFileLogInfo()
@@ -1483,7 +1515,7 @@ class WebImageDownloader(sg.ScrolledWidget):
         menu.addAction(
             'Paste clipborad text info',self.setPasteClipboradInfo)
         menu.addAction(
-            'All item removed',self.tableMenuAllRemove)
+            'All item removed',self.tableMenuAllRemove) #EDIT
         menu.exec_(QtGui.QCursor.pos())
         
     def tableMenuAllRemove(self):
@@ -1617,7 +1649,7 @@ class WebImageDownloader(sg.ScrolledWidget):
         fc.SPSL.setBackup(True)
         fc.SPSL.setJsonFile()
     
-    def setPasteClipboradInfo(self):
+    def setPasteClipboradInfo(self,ctrlv=False):
         r"""
             クリップボードに保存されたURLテキスト情報をテーブルに挿入
             テーブルへの挿入はQTableViewが持っているメソッドで実行する
@@ -1625,7 +1657,7 @@ class WebImageDownloader(sg.ScrolledWidget):
         tv = self.getUiInfo('urlPathInfo','pathTableView','widget')
         if sg.clipboradDataCheck()!=1:
             return
-        tv.pasteUrlData(tv.getClipboardText())
+        tv.pasteUrlData(tv.getClipboardText(),ctrlv)
     
     def execute(self):
         r"""

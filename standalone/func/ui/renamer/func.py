@@ -20,9 +20,6 @@ from ... import settings as st
 from msAppTools.settingFiles import systemGeneral as sg
 
 ###############################################################################
-## base settings
-
-###############################################################################
 ## common func
 
 def getModuleName():
@@ -37,12 +34,17 @@ def getAboutInfo():
     """
     return {
         'title'   : getModuleName(),
-        'version' : '2.0.1',
+        'version' : '2.1.s1',
         'author'  : st._author,
         'release' : '2019/04/26',
-        'update'  : '2020/07/14',
+        'update'  : '2020/12/30',
     }
-    
+
+###############################################################################
+## base settings
+
+_SPSL = st.StandalonePathStoreList(getModuleName())
+
 ###############################################################################
 ## sub func
 

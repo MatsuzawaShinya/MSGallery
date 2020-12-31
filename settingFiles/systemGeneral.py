@@ -37,7 +37,8 @@ from . import stylesheet as ss
 from .sglib import (
     widget as sgwidget, func as sgfunc, info as sginfo
 )
-PC = sgfunc.PathClass()
+PC     = sgfunc.PathClass()
+MSINFO = sginfo.MsAppToolsBaseInfo()
 
 ## ----------------------------------------------------------------------------
 ## local lib / ローカル環境に合わせたインポート
@@ -71,8 +72,9 @@ def path():
     """
     return (__file__)
 
-
 NOW_COMPANY = 'GOONEYS'
+
+_ESTIMATION = MSINFO.getEstimationName()
 
 _defaultFrame = (QtCore.Qt.Window|QtCore.Qt.FramelessWindowHint)
 _setWindowFlagsDict = {
@@ -327,10 +329,10 @@ class PathStoreList(sgwidget.PathStoreList):
         << sgwidget継承 >>
         パス情報のまとめクラス
     """
-    def __init__(self,parent=None):
+    def __init__(self,uiname='SYSTEMGENERAL',parent=None):
         r"""
         """
-        super(PathStoreList,self).__init__(parent)
+        super(PathStoreList,self).__init__(uiname,parent)
 
 class VariableManagement(sgwidget.VariableManagement):
     r"""

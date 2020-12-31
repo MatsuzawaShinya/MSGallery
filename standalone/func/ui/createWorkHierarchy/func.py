@@ -23,20 +23,6 @@ from ... import settings as st
 from msAppTools.settingFiles import systemGeneral as sg
 
 ###############################################################################
-## base settings
-
-REP      = sg.slashConversion
-TEMPNAME = 'TemplateClassNames'
-TEMPDATE = '9999/99/99'
-
-PREFDATA = {
-    'TAB' : 'TABINFO'
-}
-
-READWRITE  = ['read','write']
-WINDOWFLAG = ['default','tophint=True','tophint=False']
-
-###############################################################################
 ## common func
 
 def getModuleName():
@@ -56,6 +42,20 @@ def getAboutInfo():
         'release' : '2020/07/27',
         'update'  : '2020/07/27',
     }
+
+###############################################################################
+## base settings
+
+REP      = sg.slashConversion
+TEMPNAME = 'TemplateClassNames'
+TEMPDATE = '9999/99/99'
+
+PREFDATA = {
+    'TAB' : 'TABINFO'
+}
+
+READWRITE  = ['read','write']
+WINDOWFLAG = ['default','tophint=True','tophint=False']
     
 ###############################################################################
 ## sub func

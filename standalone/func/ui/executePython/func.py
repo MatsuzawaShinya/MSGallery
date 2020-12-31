@@ -20,16 +20,6 @@ from ... import settings as st
 from msAppTools.settingFiles import systemGeneral as sg
 
 ###############################################################################
-## base settings
-
-_SPSL        = st.StandalonePathStoreList()
-_defaultText = 'Drop here.'
-_dragText    = 'Drag now...'
-_subprocessValue    = 0
-_subprocessTextList = ('Popen','call')
-_DROPPATH = 'DROP_PATH'
-
-###############################################################################
 ## common func
 
 def getModuleName():
@@ -50,6 +40,16 @@ def getAboutInfo():
         'update'  : '2020/07/14',
     }
     
+###############################################################################
+## base settings
+
+_SPSL        = st.StandalonePathStoreList(getModuleName())
+_defaultText = 'Drop here.'
+_dragText    = 'Drag now...'
+_subprocessValue    = 0
+_subprocessTextList = ('Popen','call')
+_DROPPATH = 'DROP_PATH'
+
 ###############################################################################
 ## sub func
 

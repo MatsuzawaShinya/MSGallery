@@ -39,6 +39,16 @@ class MsAppToolsBaseInfo(object):
         r"""
         """
         return 'GOONEYS'
+    
+    def getEstimationName(self):
+        r"""
+        """
+        return 'ESTIMATION'
+    
+    def getEstimationBaseJsonName(self):
+        r"""
+        """
+        return 'estimationKeyInfo'
 
 ###############################################################################
 ## END

@@ -25,7 +25,7 @@ from msAppTools.settingFiles import systemGeneral as sg
 QtWidgets,QtCore,QtGui = sg.QtWidgets,sg.QtCore,sg.QtGui
 _VM_ = sg.VariableManagement()
 SM   = fc.SubMethod()
-SPSL = st.StandalonePathStoreList()
+SPSL = st.StandalonePathStoreList(fc.getModuleName())
 
 ###############################################################################
 ## layout class
@@ -1191,7 +1191,7 @@ class CreateWorkHierarchy(sg.ScrolledWidget):
             __init__設定時の動作をbuildUIで先行して行うための関数
         """
         # AppData/Roaming/msAppTools/<FILENAME>までのパスを設定
-        SPSL.setSeriesPath(SPSL.getSavePath(fc.getModuleName()))
+        SPSL.setSeriesPath(SPSL.getSaveEachUiPrefPath())
     
     def buildSetting(self):
         r"""

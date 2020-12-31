@@ -470,7 +470,7 @@ class ExecutePython(sg.ScrolledWidget):
             __init__設定時の動作をbuildUIで先行して行うための関数
         """
         # AppData/Roaming/msAppTools/<FILENAME>までのパスを設定
-        _SPSL.setSeriesPath(_SPSL.getSavePath(fc.getModuleName()))
+        _SPSL.setSeriesPath(_SPSL.getSaveEachUiPrefPath())
     
     def setting(self):
         r"""

@@ -7,6 +7,7 @@ r"""
 ## base lib
 
 import os
+import re
 import json
 import time
 import traceback
@@ -75,6 +76,8 @@ _setWindowFlagsDict = {
     'tophint=True'  : (_defaultFrame|QtCore.Qt.WindowStaysOnTopHint),
     'tophint=False' : (_defaultFrame|QtCore.Qt.WindowFlags()),
 }
+
+_ESTIMATION = MSINFO.getEstimationName()
 
 ###############################################################################
 ## Global common func
@@ -282,7 +285,7 @@ class EventBaseWidget(QtWidgets.QWidget):
         self.customContextMenuRequested.connect(self.exePopMenu)
         
         self.setPaintEventColor(8,8,8,192)
-        self.PSL = PathStoreList()
+        self.PSL = PathStoreList('EventBaseWidget')
     
     ## ------------------------------------------------------------------------
     ## Event
@@ -1171,7 +1174,7 @@ class ListView(QtWidgets.QListView):
         カテゴリ毎のアイテムを作るリストビュー
     """
     KEYMETHOD = KeyMethod()
-    
+
     def __init__(self, parent=None):
         r"""
             メインUI
@@ -1197,19 +1200,19 @@ class ListView(QtWidgets.QListView):
         r"""
             キーマスクのリターン
         """
-        return KEYMETHOD._keyMask()
+        return self.KEYMETHOD._keyMask()
     
     def getKeyMask2(self,typeList=[]):
         r"""
             キーマスクのリターン(指定タイプ)
         """
-        return KEYMETHOD._keyMask2()
+        return self.KEYMETHOD._keyMask2()
     
     def getKeyType(self,event=None):
         r"""
             キータイプのリターン
         """
-        return KEYMETHOD._keyType(event)
+        return self.KEYMETHOD._keyType(event)
     
     def clear(self):
         r"""
@@ -1429,7 +1432,11 @@ class SuggestView(EventBaseWidget):
         """
         super(SuggestView,self).__init__(parent)
         
-        self.parentSuggestFunc = self.emptyFunc
+        self.setTextLineWidget()
+        self.setSuggestItemList()
+        self.eachMovePositioning(self.emptyFunc)
+        
+        self.parentSuggestFunc = self.suggestInsert
         self.wincolor = [8,8,32,192]
         self.resize(200,240)
         self.setWindowFlags(_setWindowFlagsDict['tophint=True'])
@@ -1467,14 +1474,17 @@ class SuggestView(EventBaseWidget):
         r"""
             キーイベント（オーバーライド）
         """
-        # super(SuggestView,self).keyPressEvent(event)
-        
+        super(SuggestView,self).keyPressEvent(event)
+
         sgview  = self.getListView()
         model   = sgview.model()
         listNum = model.rowCount()
-        _key,_mask = self.getKeyType(event),self.getKeyMask()
-        _press = _key['press']
-        if _press in ('Up','Down'):
+        _key    = self.getKeyType(event)
+        _mask   = self.getKeyMask()
+        _mask2  = self.getKeyMask2()
+        _press  = _key['press']
+        
+        if _press in ['Up','Down']:
             now     = self.getQModelIndexList()
             index   = now.row()
             if _key['press']=='Up':
@@ -1488,7 +1498,9 @@ class SuggestView(EventBaseWidget):
                 if index>=listNum:
                     index = 0
             sgview.setCurrentIndex(model.createIndex(index,0))
-        elif _press in ('Return','Enter'):
+        elif _press in ['Left','Right'] and _key['mod1']==_mask2(['ctrl']):
+            self.exeHide()
+        elif _press in ['Return','Enter']:
             self.exeSuggestInsert()
         else:
             pass
@@ -1543,7 +1555,7 @@ class SuggestView(EventBaseWidget):
         )
     
     ## ------------------------------------------------------------------------
-    ## func
+    ## common func
     
     def getQModelIndexList(self):
         r"""
@@ -1581,6 +1593,33 @@ class SuggestView(EventBaseWidget):
         """
         return self._suggestView
     
+    ## ------------------------------------------------------------------------
+    ## suggest func
+    
+    def setTextLineWidget(self,widget=None):
+        r"""
+            テキストラインウィジェット情報をセット
+        """
+        self.__baseTextLineWidget = widget
+        
+    def getTextLineWidget(self):
+        r"""
+            テキストラインウィジェット情報を取得
+        """
+        return self.__baseTextLineWidget
+        
+    def setSuggestItemList(self,list=[]):
+        r"""
+            サジェストリストに登録するアイテムをセット
+        """
+        self.__suggestItemList = list
+        
+    def getSuggestItemList(self):
+        r"""
+            サジェストリストに登録するアイテムを取得
+        """
+        return self.__suggestItemList
+    
     def setSuggestInsert(self,f):
         r"""
             親のサジェストメソッドをセット
@@ -1603,6 +1642,76 @@ class SuggestView(EventBaseWidget):
             traceback.print_exc()
             return False
         return True
+
+    def eachMovePositioning(self,func=None):
+        r"""
+            移動調整用の関数を指定or実行
+            func変数に指定がある場合はセット、指定がなければ取得
+        """
+        if func:
+            self.__moveFunction = (
+                func if ('method' in str(type(func))) else self.emptyFunc)
+        else:
+            return self.__moveFunction if self.__moveFunction else None
+
+    def suggestSetting(self):
+        r"""
+            設定されている情報を収集しサジェストリスト項目を作成
+        """
+        textwidget = self.getTextLineWidget()
+        if not textwidget:
+            raise RuntimeError(
+                u'!! QLineEdit is not set. "setTextLineWidget(QLineEdit)" !!')
+        itemlist   = self.getSuggestItemList()
+        if not itemlist:
+            raise RuntimeError(
+                u'!! Item list is not set. "setSuggestItemList(list)" !!')
+        
+        pickList = []
+        for item in itemlist:
+            input = textwidget.text()
+            if not input:
+                continue
+            word  = item[0]
+            # 1文字の場合は正規表現固有の文字に引っかからないように処理を加える
+            re_input = (input if len(input)>=2 else '[{}]'.format(input))
+            if re.search(re_input,word):
+                pickList.append(word)
+                continue
+                
+        # 何も入力されていない/ピックリストがないなら非表示に
+        if not textwidget.text() or not pickList:
+            self.exeHide()
+            return
+        
+        self.createListItem(pickList)
+        self.eachMovePositioning()(textwidget)
+        self.exeShow()
+        # ウィンドウフォーカスは常にテキストラインに固定
+        textwidget.setFocus()
+        textwidget.activateWindow()
+        
+    def suggestInsert(self):
+        r"""
+            サジェスト(Enter/Return)時の動作
+        """
+        listAll = self.getQModelIndexList()
+        if not listAll or self.isHidden():
+            return
+            
+        # ↓↑キーで移動した際はmodelIndexが正常に取得できないため
+        # selectionModel.model()経由でインデックス位置を探知しネームを取得する
+        #   ※ クリック選択は問題なく取得される
+        now = listAll.data()
+        if not now:
+            _model = self.getListView().selectionModel().model()
+            now    = str(_model.item(listAll.row(),0).data(0))
+
+        now_textLine = self.getTextLineWidget()
+        if not now_textLine:
+            return
+        now_textLine.setText(now)
+        self.exeHide()
 
 ## ----------------------------------------------------------------------------
 
@@ -1712,8 +1821,9 @@ class SystemTrayIcon(QtWidgets.QWidget):
         """
         if self.getSystemTrayAvailable():
             self.trayIcon.showMessage(
-                self._showTitle,self._showMessage,self._showIcon)
-            self.started()
+                self._showTitle,self._showMessage,self._showIcon,
+                millisecondsTimeoutHint=self._showTime
+            )
     
     def exeHide(self):
         r"""
@@ -2429,7 +2539,7 @@ class PathStoreList(sgfunc.PathClass):
         msAppTools系ファイルの根幹ファイルパスへのアクセスメソッドを
         集約したまとめクラス
     """
-    def __init__(self,parent=None):
+    def __init__(self,uiname='',parent=None):
         r"""
             初期設定
         """
@@ -2439,26 +2549,87 @@ class PathStoreList(sgfunc.PathClass):
         self._dict = {}
         self._buflag = False
         
+        self.setBaseUiName(uiname)
+        
         self.suffixPrefName = '.{}.json'
-        self.estimationName = 'estimationKeyInfo{}'.format(
-            self.getSuffixName('master'))
+        self.estimationBase = '%s{}'%(MSINFO.getEstimationBaseJsonName())
+        
+        self.estimationName = self.getEstimationName()
         self.windowPrefFile = 'window{}'.format(
             self.getSuffixName('pref'))
+            
         self.msAppToolsPath = self.toBasePath(
             os.path.join(self.getRoamingPath(),msAppToolsName))
     
+    ## ----------------------------------------------------
+    ## base name setting
+    
+    def setBaseUiName(self,uiname):
+        r"""
+            ベースUI名を記録
+        """
+        self.__uiname = uiname
+        
+    def getBaseUiName(self):
+        r"""
+            ベースUI名を取得
+        """
+        # if not self.__uiname:
+            # raise RuntimeError(u'!! Not specified <<__uiname>> !!')
+        return self.__uiname if self.__uiname else 'master'
+    
     def getSuffixName(self,suf=''):
         r"""
+            ベースsuffix変数に指定文字を付与して取得
         """
         return self.suffixPrefName.format(suf)
-        
-    def createMsAppToolsDir(self):
+    
+    def getPrefJsonName(self):
         r"""
-            msAppToolsのディレクトリ作成
+            ui名を指定してuiname.pref.jsonをリターン
         """
-        if not os.path.isdir(self.msAppToolsPath):
-            os.mkdir(self.msAppToolsPath)
-            print('+ Create Roaming msAppTools dir.')
+        return ('{}{}'.format(self.getBaseUiName(),self.getSuffixName('pref')))
+    
+    ## ----------------------------------------------------
+    ## estimation setting
+    
+    def getEstimationName(self,uiname=''):
+        r"""
+            ベースestimation名を取得
+        """
+        return self.estimationBase.format(
+            self.getSuffixName(uiname if uiname else self.getBaseUiName()))
+    
+    def getEstimationMasterPath(self):
+        r"""
+            msAppTools直下のマスターestimationパスを取得
+        """
+        return ('/'.join([
+            self.getMasterPath(),self.getEstimationName('master')]))
+    
+    def getEstimationEachuiPath(self,uiname=''):
+        r"""
+            ui名を指定してestimation.XXXX.jsonのフルパスを取得
+        """
+        return self.toBasePath(os.path.join(
+            self.getMasterPath(),self.getBaseUiName(),
+            self.getEstimationName(self.getBaseUiName())))
+    
+    def getSaveEachUiPrefPath(self,uiname=''):
+        r"""
+            ui名を指定してXXXX.pref.jsonのフルパスを取得
+        """
+        return self.toBasePath(os.path.join(self.getMasterPath(),
+            self.getBaseUiName(),self.getPrefJsonName()))
+    
+    ## ----------------------------------------------------
+    ## path setting
+    
+    def getMasterPath(self):
+        r"""
+            msAppToolsまでのベースパスを取得
+        """
+        return self.msAppToolsPath
     
     def windowPrefPath(self):
         r"""
@@ -2466,6 +2637,9 @@ class PathStoreList(sgfunc.PathClass):
         """
         return self.toBasePath(os.path.join(
             self.getRoamingPath(),msAppToolsName,self.windowPrefFile))
+    
+    ## ----------------------------------------------------
+    ## other setting
     
     def setPath(self,p):
         r"""
@@ -2490,17 +2664,6 @@ class PathStoreList(sgfunc.PathClass):
             辞書データの取得
         """
         return self._dict
-        
-    def getJsonFile(self):
-        r"""
-            jsonデータの情報をリターン
-        """
-        if not self._path:
-            return
-        f = open(self.getPath(),'r')
-        d = json.load(f)
-        f.close()
-        return d
     
     def setBackup(self,value=False):
         r"""
@@ -2511,6 +2674,20 @@ class PathStoreList(sgfunc.PathClass):
         r"""
         """
         return self._buflag
+        
+    def getJsonFile(self):
+        r"""
+            jsonデータの情報をリターン
+        """
+        p = self.getPath()
+        self.checkTempJsonFile(p)
+        f = open(p,'r')
+        d = json.load(f)
+        f.close()
+        return d
+    
+    ## ----------------------------------------------------
+    ## action func
     
     def setJsonFile(self):
         r"""
@@ -2534,24 +2711,46 @@ class PathStoreList(sgfunc.PathClass):
         # default
         _backup(self.getPath())
     
+    def createMsAppToolsDir(self):
+        r"""
+            msAppToolsのディレクトリ作成
+        """
+        if not os.path.isdir(self.msAppToolsPath):
+            os.mkdir(self.msAppToolsPath)
+            print('+ Create Roaming msAppTools dir.')
+    
+    def checkTempJsonFile(self,path):
+        r"""
+            指定されたjsonファイルパスがなければ作成する
+        """
+        addinfo  = {'DEFAULT':[]}
+        jsonfile = os.path.basename(path)
+        
+        if not os.path.isfile(path) and jsonfile.endswith('.json'):
+            # estimationKeyInfo.XXX.jsonの場合_ESTIMATIONの空辞書情報を追加
+            if jsonfile.startswith(MSINFO.getEstimationBaseJsonName()):
+                addinfo.update({_ESTIMATION:{}})
+                print(u'+ Add info <estimation>.')
+            f    = open(path,'w')
+            dict = addinfo
+            json.dump(dict,f,indent=4,sort_keys=True)
+            f.close()
+            print(u'>>> Create json file / {}'.format(path))
+    
     def checkPathFile(self):
         r"""
             対象ファイルの確認。無ければデフォルトデータを作成
         """
         path = self.getPath()
-        
+
         # ディレクトリ確認
         dirnamedir = os.path.dirname(path)
         if not os.path.isdir(dirnamedir):
             os.makedirs(dirnamedir)
             print('>>> Create dirs / {}'.format(dirnamedir))
-            
-        if not os.path.isfile(path):
-            f = open(path,'w')
-            dict = {'DEFAULT':[]}
-            json.dump(dict,f,indent=4,sort_keys=True)
-            f.close()
-            print('+ Create save json file.')
+        
+        # jsonファイル確認
+        self.checkTempJsonFile(path)
     
     def setSeriesPath(self,filepath):
         r"""
