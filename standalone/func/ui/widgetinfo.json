@@ -1,4 +1,15 @@
 {
+    "connectCharacter": {
+        "drop": "False",
+        "name": "ConnectCharacter",
+        "order": 70,
+        "size": [
+            400,
+            400
+        ],
+        "start": "True",
+        "windowFlag": "default"
+    },
     "createWorkHierarchy": {
         "drop": "True",
         "name": "CreateWorkHierarchy",

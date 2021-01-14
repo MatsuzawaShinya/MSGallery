@@ -10,8 +10,6 @@ import os
 import sys
 import json
 import traceback
-from . import func as fc
-from ... import settings as st
 
 ## ----------------------------------------------------------------------------
 ## third party lib
@@ -21,6 +19,9 @@ from ... import settings as st
 
 from msAppTools.settingFiles import systemGeneral as sg
 QtWidgets,QtCore,QtGui = sg.QtWidgets,sg.QtCore,sg.QtGui
+
+from . import func as fc
+from ... import settings as st
     
 ###############################################################################
 
@@ -31,8 +32,8 @@ class TemplateClassNames(sg.ScrolledWidget):
         r"""
             初期設定
         """
-        super(TemplateClassNames,self).__init__(parent)
         self._dict = masterDict
+        super(TemplateClassNames,self).__init__(parent)
     
     ## ------------------------------------------------------------------------
     ## common parent event setting

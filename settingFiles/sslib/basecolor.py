@@ -56,6 +56,50 @@ class ColorLibrary(object):
         return '#252525'
         
     ## ------------------------------------------------------------------------
+    ## msAppTools base tab color
+    
+    def commonTabColor(self):
+        r"""
+            msAppTools共通タブカラーのスタイル情報を取得
+        """
+        return (
+            'QTabWidget::pane{'
+                'border: 3px solid #252525;'
+            '}'
+            'QTabWidget::tab-bar{'
+                'left: 2px;'
+            '}'
+            'QTabBar::tab{'
+                'color: #DDD;'
+                'background: qlineargradient('
+                    'x1:0, y1:0, x2:0, y2:1, stop:0 #666, stop:1 #333'
+                ');'
+                'min-width: 22ex;'
+                'padding: 4px;'
+                'border-top-left-radius:1px; border-top-right-radius:1px;'
+            '}'
+            'QTabBar::tab:selected, QTabBar::tab:hover {'
+                'background-color:qlineargradient'
+                    '(x1:0, y1:0, x2:0, y2:1, stop:0 #888, stop:1 #555'
+                ')'
+            '}'
+            'QTabBar::tab:selected {'
+                'margin-left: 1px; margin-right: 1px;'
+            '}'
+            'QTabBar::tab:first:selected {'
+                'margin-left: 0px;'
+            '}'
+            'QTabBar::tab:last:selected {'
+                'margin-right: 0px;'
+            '}'
+            'QTabBar::tab:pressed {'
+                'background: qlineargradient('
+                    'x1:0, y1:0, x2:0, y2:1, stop:0 #555, stop:1 #222'
+                ');'
+            '}'
+        )
+    
+    ## ------------------------------------------------------------------------
     ## gradation color setting
     
     def baseGradientStyleWord(self):

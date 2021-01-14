@@ -691,10 +691,10 @@ class EditNameWidget(sg.EventBaseWidget):
             移動時のイベント動作
         """
         super(EditNameWidget,self).mouseMoveEvent(event)
-        
+
         # Edit nameを移動時にサジェストも一緒についてくる設定
         self.moveGui(self.__leList[self.line_num])
-    
+
     ## ------------------------------------------------------------------------
     ## get
     
@@ -713,6 +713,14 @@ class EditNameWidget(sg.EventBaseWidget):
             return self.__leList[index].text()
         except:
             return None
+    
+    def getWidgetPositionInfo(self,widget):
+        r"""
+            ウィジェット／カーソル情報を返す
+        """
+        cursor_pos    = self.mapToGlobal(widget.cursorRect().bottomRight())
+        lineedit_post = self.mapToGlobal(widget.pos())
+        return [cursor_pos,lineedit_post]
     
     ## ------------------------------------------------------------------------
     ## func
@@ -889,8 +897,8 @@ class EditNameWidget(sg.EventBaseWidget):
         r"""
             ウィジェット位置調整(SuggestViewでも実行)
         """
-        cursor_pos    = self.mapToGlobal(lines.cursorRect().bottomRight())
-        lineedit_post = self.mapToGlobal(lines.pos())
+        cursor_pos,lineedit_post = self.getWidgetPositionInfo(lines)
+        print(lines,cursor_pos,lineedit_post)
         self._SV.move(
             # 横位置調整
             (cursor_pos.x()-(cursor_pos.x()-lineedit_post.x()+(-110))+
@@ -1212,7 +1220,9 @@ class ExportLineWidget(QtWidgets.QWidget):
                 else:
                     targetdict = {word:nextnum}
                 exec('saveDict_{}.update(targetdict)'.format(type))
-                printmsg.append(u'{}\t: {} -> {}'.format(type,nownum,nextnum))
+                printmsg.append(
+                            u'{}: {} -> {}'.format('  {: <7}'.format(type),
+                            nownum,nextnum))
         print('\n'.join(printmsg))
                 
         _SPSL.setJsonEstimationData(saveDict_master,saveDict_ui)

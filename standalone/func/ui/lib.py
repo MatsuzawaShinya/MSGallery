@@ -18,6 +18,8 @@ import traceback
 ## ----------------------------------------------------------------------------
 ## local lib
 
+from msAppTools.settingFiles import systemGeneral as sg
+
 ###############################################################################
 ## setting
 
@@ -33,6 +35,27 @@ class WidgetSettingInfo(object):
             初期設定
         """
         pass
+    
+    ## ----------------------------------------------------
+    ## path info
+    
+    def getNowFolderPath(self):
+        r"""
+            現在のファイルパスを相対的に返す
+        """
+        return os.path.dirname(__file__)
+    
+    def getEachPythonFile(self,uiname,filetype):
+        r"""
+            UI名とpythonファイルタイプを指定してファイルパス情報を取得
+            ファイルパス先のデータが無い場合はNoneを返す
+        """
+        path = os.path.join(self.getNowFolderPath(),uiname,
+            filetype if '.py' in filetype else '{}.py'.format(filetype))
+        return sg.toBasePath(path) if os.path.isfile(path) else None
+    
+    ## ----------------------------------------------------
+    ## window info
     
     def getNowDirJsonPath(self):
         r"""

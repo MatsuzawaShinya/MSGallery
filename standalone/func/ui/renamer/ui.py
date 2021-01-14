@@ -34,21 +34,19 @@ _SPSL = fc._SPSL
 _setResizeMode = ('setResizeMode'
     if sg.getPythonVersion()=='27' else 'setSectionResizeMode')
 
+_PREFIX = 'prefix'
+_SUFFIX = 'suffix'
+
 ###############################################################################
 ## sub func
-
-"""
-_SPSL.getJsonEstimationData('sum')
-_SPSL.getJsonEstimationData('master')
-_SPSL.getJsonEstimationData('ui')
-"""
-# print(111,getEstimationInfoData('master'))
-# print(111,_SPSL.getJsonEstimatiaonData())
 
 _SV = sg.SuggestView()
 _SV.exeHide()
 
+_VM_ = sg.VariableManagement()
+
 ###############################################################################
+## sub class
 
 class InputLine(QtWidgets.QLineEdit):
     r"""
@@ -58,13 +56,14 @@ class InputLine(QtWidgets.QLineEdit):
         r"""
         """
         super(InputLine,self).__init__(text,parent)
+        self.parentWidget  = parent if parent else None
         self.executeMethod = self.__temp
         
         self.setTextEnableFlag = editText
-        self.textChanged.connect(self.textChange)
+        self.cursorPositionChanged.connect(self.textChange)
     
     ## ----------------------------------------------------
-    ## temp
+    ## temp    
     
     def __temp(self):
         r"""
@@ -118,7 +117,7 @@ class InputLine(QtWidgets.QLineEdit):
         elif key['press'] in ['Up','Down','Left','Right']:
             if not _SV.isHidden():
                 _SV.keyPressEvent(event)
-    
+        
     ## ----------------------------------------------------
     ## func
     
@@ -128,10 +127,12 @@ class InputLine(QtWidgets.QLineEdit):
         """
         self.clear()
     
-    def textChange(self,text):
+    def textChange(self,oldpos,newpos):
         r"""
             テキストラインが変更された時の挙動
         """
+        _VM_.setVariable('nowFocusLineEdit',self)
+        
         if not self.setTextEnableFlag:
             return
         _SV.setTextLineWidget(self)
@@ -140,23 +141,46 @@ class InputLine(QtWidgets.QLineEdit):
             reverse=True,key=(lambda x:x[1])))
         _SV.eachMovePositioning(self.moveGui)
         _SV.suggestSetting()
-    
-    def moveGui(self,lines=None,fit=True):
+
+    def moveGui(self,lines=None,fit=True,resizeFlag=False):
         r"""
             ウィジェット位置調整(SuggestViewでも実行)
         """
-        # 非表示状態のみ位置調整
-        if not _SV.isHidden():
-            return
-            
         line   = lines if lines else self
         c_pos  = self.mapToGlobal(self.cursorRect().bottomRight())
         l_post = self.mapToGlobal(self.pos())
-        ## fit=True /サジェスト表示位置をテキストライン直下に固定
+        ## fit=True /サジェスト表示位置をライン左部にフィット固定
         ## fit=False/サジェスト表示位置を入力カーソルライン位置に流動指定
-        putx   = (l_post.x()+(-54)) if fit else (c_pos.x()+(-14))
-        puty   = (c_pos.y()+(+2))
+        baseX = self.parentWidget.pos().x()
+        putx  = (int(baseX-(_SV.rect().width()*0.5))
+                    if fit else (c_pos.x()+(-14)))
+        puty  = (c_pos.y()+(+2))
+        putw  = _SV.rect().width()
+        puth  = _SV.rect().height()
+        
+        # ディスプレイサイズに合わせたリミット数値調整
+        _off  = -3
+        _DI   = sg.DesktopInfo()
+        drect = _DI.getWidgetDesktopSize(self.parentWidget)
+        
+        # 左側の調整
+        if putx < _off:
+            putw += putx
+            putx  = 0
+        else:
+            putw = _SV.winsize[0]
+        
+        # 下側の調整
+        blimit = drect.height()-(_SV.rect().height())
+        if puty > blimit:
+            puth += (blimit-puty)
+            puty = blimit
+        else:
+            puth = _SV.winsize[1]
+        
         _SV.move(putx,puty)
+        if resizeFlag:
+            _SV.resize(putw,puth)
         
     def suggestInsert(self):
         r"""
@@ -164,7 +188,113 @@ class InputLine(QtWidgets.QLineEdit):
         """
         _SV.suggestInsert()
     
-###############################################################################
+## ----------------------------------------------------------------------------
+
+class AdditionInputLine(QtWidgets.QWidget):
+    r"""
+        チェックボックスで切り替え可能な入力ラインの作成
+    """
+    def __init__(self,text='',editText=True,parent=None):
+        r"""
+        """
+        self._parent = parent
+        super(AdditionInputLine,self).__init__(self._parent)
+        
+        self.setWidgetStateInfo()
+        
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.layout.setContentsMargins(2,0,2,0)
+        self.hlayout = QtWidgets.QHBoxLayout()
+
+        ## ------------------------------------------------        
+        ## tabで移動する際の順番はウィジェットの宣言順になる
+        
+        self.mainline  = InputLine(text,editText,self._parent)
+        prefix = self.getCheckBoxLayout(_PREFIX,True)
+        suffix = self.getCheckBoxLayout(_SUFFIX,False)
+        self.setWidgetStateInfo('mainline',self.mainline)
+        
+        ## ------------------------------------------------        
+        
+        self.hlayout.addLayout(prefix,alignment=QtCore.Qt.AlignLeft)
+        self.hlayout.addWidget(self.mainline,stretch=10)
+        self.hlayout.addLayout(suffix,alignment=QtCore.Qt.AlignRight)
+        self.layout.addLayout(self.hlayout)
+
+    ## ----------------------------------------------------
+    ## sub method
+    
+    def getCheckBoxLayout(self,named,pos=True):
+        r"""
+            チェックボックスの入力ラインを返す
+        """
+        ## ------------------------------------------------
+        ## main layout
+        
+        layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(0,0,0,0)
+        
+        cb = QtWidgets.QCheckBox('')
+        cb.setToolTip(u'チェックオンで入力文字を接続文字として付与')
+        cb.setChecked(True)
+        le = InputLine('',True,self._parent)
+        le.setFixedWidth(50)
+        cb.connectLineEdit = le
+        cb.stateChanged.connect(self.checkBoxToggleState)
+        
+        wlist = [cb,le]
+        [layout.addWidget(w) for w in (wlist[:] if pos else wlist[::-1])]
+        
+        self.setWidgetStateInfo('{}_layout'.format(named)  ,layout)
+        self.setWidgetStateInfo('{}_checkbox'.format(named),cb)
+        self.setWidgetStateInfo('{}_lineedit'.format(named),le)
+        
+        return layout
+    
+    ## ----------------------------------------------------
+    ## setting
+    
+    def getMainEditLine(self):
+        r"""
+            メインのEditLineを取得する
+        """
+        return self.mainline if hasattr(self,'mainline') else None
+    
+    def setWidgetStateInfo(self,key=None,value=None):
+        r"""
+            ウィジェット内主要パーツ情報を辞書形式で保存
+            key,value未定義で実行した場合は辞書を初期化
+        """
+        if key==None and value==None:
+            self._widgetStateInfo = {}
+            return
+        self._widgetStateInfo.update({key:value})
+        
+    def getWidgetStateInfo(self,key=''):
+        r"""
+            ウィジェット内主要パーツ情報を返す
+            key指定がある場合は辞書内容を取得
+        """
+        return (self._widgetStateInfo
+            if not key else self._widgetStateInfo.get(key))
+    
+    ## ----------------------------------------------------
+    ## widget method
+            
+    def checkBoxToggleState(self,state):
+        r"""
+            チェックボックス状態によってラインエディットの
+            可視化を操作するメソッド
+            checkState: [0]Unchecked, [1]PartiallyChecked, [2]Checked
+                https://doc.qt.io/qt-5/qt.html#CheckState-enum
+        """
+        sender = self.sender()
+        if not hasattr(sender,'connectLineEdit'):
+            return
+        sle = sender.connectLineEdit
+        sle.show() if state==2 else sle.hide()
+
+## ----------------------------------------------------------------------------
     
 class TreeView(QtWidgets.QTreeView):
     r"""
@@ -393,22 +523,34 @@ class TreeView(QtWidgets.QTreeView):
         """
         _E = sg.toEncode
         _D = sg.toDecode 
+        _P = _PREFIX
+        _S = _SUFFIX
+        _JO = '_'.join
         
-        _d = self._changeTextDict
+        _d  = self._changeTextDict
         _bn = _d['basename'] if _d.get('basename') else ''
         _st = _d['start']    if _d.get('start')    else None
         _pd = _d['padding']  if _d.get('padding')  else None
         _sp = _d['step']     if _d.get('step')     else None
         _sc = _d['search']   if _d.get('search')   else ''
         _re = _d['replace']  if _d.get('replace')  else ''
-        _pr = _d['prefix']   if _d.get('prefix')   else ''
-        _su = _d['suffix']   if _d.get('suffix')   else ''
+        _pr = _d[_PREFIX]    if _d.get(_PREFIX)    else ''
+        _su = _d[_SUFFIX]    if _d.get(_SUFFIX)    else ''
         
         __cb = self.getCheckboxWidgetDict()
         __cb_bn = __cb.get('basename').isChecked()
         __cb_rp = __cb.get('replace').isChecked()
         __cb_re = __cb.get('regularExpression').isChecked()
         __cb_ps = __cb.get('prefixSuffix').isChecked()
+
+        _pr_pr = (_d[_JO([_P,_P])] if _d.get(_JO([_P,_P])) and
+            __cb.get(_JO([_P,_P])).isChecked() else '')
+        _pr_su = (_d[_JO([_P,_S])] if _d.get(_JO([_P,_S])) and
+            __cb.get(_JO([_P,_S])).isChecked() else '')
+        _su_pr = (_d[_JO([_S,_P])] if _d.get(_JO([_S,_P])) and
+            __cb.get(_JO([_S,_P])).isChecked() else '')
+        _su_su = (_d[_JO([_S,_S])] if _d.get(_JO([_S,_S])) and
+            __cb.get(_JO([_S,_S])).isChecked() else '')
         
         estimationUpdataInfo = {
             'basename' : {
@@ -425,11 +567,11 @@ class TreeView(QtWidgets.QTreeView):
                 'enable'   : __cb_rp,
                 'regexp'   : __cb_re,
             },
-            'prefix' : {
+            _PREFIX : {
                 'variable' : _pr,
                 'enable'   : __cb_ps,
             },
-            'suffix' : {
+            _SUFFIX : {
                 'variable' : _su,
                 'enable'   : __cb_ps,
             },
@@ -471,7 +613,11 @@ class TreeView(QtWidgets.QTreeView):
             # prefix/suffix
             if __cb_ps:
                 try:
-                    _bef = _D('{}{}{}'.format(_E(_pr),_E(_bef),_E(_su)))
+                    _bef = _D('{}{}{}'.format(
+                        _E('{}{}{}'.format(_pr_pr,_pr,_pr_su)),
+                        _E(_bef),
+                        _E('{}{}{}'.format(_su_pr,_su,_su_su)))
+                    )
                 except:
                     _bef = _bef
             # basename
@@ -520,7 +666,8 @@ class TreeView(QtWidgets.QTreeView):
                             targetdict = {word:nextnum}
                         exec('saveDict_{}.update(targetdict)'.format(type))
                         printmsg.append(
-                            u'  {}\t: {} -> {}'.format(type,nownum,nextnum))
+                            u'{}: {} -> {}'.format('  {: <7}'.format(type),
+                            nownum,nextnum))
             print('\n'.join(printmsg))
 
             _SPSL.setJsonEstimationData(saveDict_master,saveDict_ui)
@@ -661,15 +808,22 @@ class Renamer(sg.ScrolledWidget):
             初期設定
         """
         self.preSetting()
-        
-        super(Renamer,self).__init__(parent)
-        
         self._dict   = masterDict
         self._parent = parent
+        
+        self._addressInfo = {
+            'type'       : 'type',
+            'initialize' : 'initialize',
+        }
+        
+        super(Renamer,self).__init__(parent)
     
         # set/estimation
         _SPSL.setBeforeEstimationInfo()
-    
+        
+        # set/suggestViwe setWindowFlags
+        _SV.setParentWindowFlags(parent)
+        
     ## ------------------------------------------------------------------------
     ## common parent event setting
     
@@ -710,6 +864,10 @@ class Renamer(sg.ScrolledWidget):
         
         Q_LABEL = QtWidgets.QLabel
         
+        ad_t = self._addressInfo.get('type')
+        ad_i = self._addressInfo.get('initialize')
+        
+        
         self.__textWidgetList      = []
         self.__checkboxWidgetDict  = {}
         self.__labelWidgetList     = []
@@ -747,19 +905,19 @@ class Renamer(sg.ScrolledWidget):
         bn_editLayout = QtWidgets.QHBoxLayout()
         bn_nameLabel = Q_LABEL('Input name : ')
         self.__labelWidgetList.append(bn_nameLabel)
-        self.bn_basenameLine = InputLine()
-        self.bn_basenameLine.address = {'type':'basename','initialize':''}
+        self.bn_basenameLine = InputLine(parent=self._parent)
+        self.bn_basenameLine.address = {ad_t:'basename',ad_i:''}
         self.__textWidgetList.append(self.bn_basenameLine)
         bn_editLayout.addWidget(bn_nameLabel)
         bn_editLayout.addWidget(self.bn_basenameLine)
         
         bn_numberingLayout = QtWidgets.QHBoxLayout()
-        self.startNumLine  = InputLine(editText=False)
-        self.paddingLine   = InputLine(editText=False)
-        self.stepLine      = InputLine(editText=False)
-        self.startNumLine.address = {'type':'start'  ,'initialize':'1'}
-        self.paddingLine.address  = {'type':'padding','initialize':'1'}
-        self.stepLine.address     = {'type':'step'   ,'initialize':'1'}
+        self.startNumLine  = InputLine(editText=False,parent=self._parent)
+        self.paddingLine   = InputLine(editText=False,parent=self._parent)
+        self.stepLine      = InputLine(editText=False,parent=self._parent)
+        self.startNumLine.address = {ad_t:'start'  ,ad_i:'1'}
+        self.paddingLine.address  = {ad_t:'padding',ad_i:'1'}
+        self.stepLine.address     = {ad_t:'step'   ,ad_i:'1'}
         self.__textWidgetList.append(self.startNumLine)
         self.__textWidgetList.append(self.paddingLine)
         self.__textWidgetList.append(self.stepLine)
@@ -805,10 +963,10 @@ class Renamer(sg.ScrolledWidget):
         rep_checkLayout.addWidget(self.rep_enableCheck)
         
         rep_formLayout       = QtWidgets.QFormLayout()
-        self.rep_searchLine  = InputLine()
-        self.rep_replaceLine = InputLine()
-        self.rep_searchLine.address  = {'type':'search' ,'initialize':''}
-        self.rep_replaceLine.address = {'type':'replace','initialize':''}
+        self.rep_searchLine  = InputLine(parent=self._parent)
+        self.rep_replaceLine = InputLine(parent=self._parent)
+        self.rep_searchLine.address  = {ad_t:'search' ,ad_i:''}
+        self.rep_replaceLine.address = {ad_t:'replace',ad_i:''}
         self.__textWidgetList.append(self.rep_searchLine)
         self.__textWidgetList.append(self.rep_replaceLine)
         qlabelbuf = Q_LABEL('Search  :')
@@ -832,29 +990,45 @@ class Renamer(sg.ScrolledWidget):
         self.ps_enableCheck = QtWidgets.QCheckBox('Enable')
         self.ps_enableCheck.setChecked(True)
         self.__checkboxWidgetDict['prefixSuffix'] = self.ps_enableCheck
-        
-        ps_formLayout      = QtWidgets.QFormLayout()
-        self.ps_prefixLine = InputLine()
-        self.ps_suffixLine = InputLine()
-        self.ps_prefixLine.address = {'type':'prefix','initialize':''}
-        self.ps_suffixLine.address = {'type':'suffix','initialize':''}
-        self.__textWidgetList.append(self.ps_prefixLine)
-        self.__textWidgetList.append(self.ps_suffixLine)
-        qlabelbuf = Q_LABEL('Prefix :')
-        self.__labelWidgetList.append(qlabelbuf)
-        ps_formLayout.addRow(qlabelbuf,self.ps_prefixLine)
-        qlabelbuf = Q_LABEL('Suffix :')
-        self.__labelWidgetList.append(qlabelbuf)
-        ps_formLayout.addRow(qlabelbuf,self.ps_suffixLine)
+
+        ps_formLayout = QtWidgets.QFormLayout()
+        _PSLIST       = [_PREFIX,_SUFFIX]
+        for ps in _PSLIST:
+            bufline = AdditionInputLine(parent=self._parent)
+            
+            # mainline
+            buf = eval("bufline.getWidgetStateInfo('mainline')")
+            buf.address = {ad_t:ps,ad_i:''}
+            self.__textWidgetList.append(buf)
+            
+            # prefix & suffix line
+            for ps2 in _PSLIST:
+                # lineedit
+                buf = eval(
+                    "bufline.getWidgetStateInfo('{}_lineedit')".format(ps2))
+                buf.address = {ad_t:'{}_{}'.format(ps,ps2),ad_i:None}
+                self.__textWidgetList.append(buf)
+                # checkbox
+                buf = eval(
+                    "bufline.getWidgetStateInfo('{}_checkbox')".format(ps2))
+                self.__checkboxWidgetDict['{}_{}'.format(ps,ps2)] = buf
+            
+            labelbuf = Q_LABEL('{}{} :'.format(ps[0].upper(),ps[1:]))
+            self.__labelWidgetList.append(labelbuf)
+            ps_formLayout.addRow(labelbuf,bufline)
+            
+            # 可視化ラインの初期設定
+            eval('bufline.getWidgetStateInfo("{}_checkbox")'
+                    '.setChecked({})'.format(ps,False))
         
         presufLayout.addWidget(ps_title)
-        presufLayout.addWidget(self.ps_enableCheck,alignment=QtCore.Qt.AlignRight)
+        presufLayout.addWidget(
+            self.ps_enableCheck,alignment=QtCore.Qt.AlignRight)
         presufLayout.addLayout(ps_formLayout)
         
         ## --------------------------------------------------------------------
         ## view
         
-        # self._view = TreeView()
         self._view = TreeView(self)
         model = QtGui.QStandardItemModel(0,2)
         model.setHeaderData(0,QtCore.Qt.Horizontal,'Before')
@@ -875,7 +1049,7 @@ class Renamer(sg.ScrolledWidget):
         self.exeButton.clicked.connect(self._view.executeRename)
 
         ## --------------------------------------------------------------------
-        ## all
+        ## all layout setting
         
         layout = QtWidgets.QVBoxLayout(parent)
         layout.setContentsMargins(8,8,8,8)
@@ -896,9 +1070,9 @@ class Renamer(sg.ScrolledWidget):
         
         # lineEdit
         for _t in self.__textWidgetList:
-            _t.self     = _t  
-            _type,_text = _t.address['type'],_t.text()
-            self._view.dictUpdate(_type,_text)
+            _t.self = _t  
+            _type   = _t.address['type']
+            self._view.dictUpdate(_type,_t.text())
             if _type in ('start',):
                 _func = self._view.textLineCheck
             elif _type in ('padding','step'):
@@ -911,15 +1085,18 @@ class Renamer(sg.ScrolledWidget):
             try:
                 _t.setExecuteMethod(self._view.executeRename)
             except:
-                print(u'>>> InputLine/setExecuteMethodを実行できませんでした。')
+                print(u'>> InputLine/setExecuteMethodを実行できませんでした。')
                 print
         
         # checkBox
         self._view.setCheckboxWidgetDict(self.__checkboxWidgetDict)
         for _c in self.__checkboxWidgetDict:
-            self.__checkboxWidgetDict[_c].toggled.connect(self._view.cbListUpdate)
-            __checkBoxStyle(self.__checkboxWidgetDict[_c])
-    
+            self.__checkboxWidgetDict[_c].toggled.connect(
+                self._view.cbListUpdate)
+            __checkBoxStyle(self.__checkboxWidgetDict[_c])       
+        
+        self._view.headerResize()
+        
     ## --------------------------------------------------------------------
     ## event
     
@@ -936,7 +1113,14 @@ class Renamer(sg.ScrolledWidget):
         """
         # 入力時メインGUIを閉じた際suggestViwを終了する
         _SV.exeHide()
-    
+        
+    def mouseMoveEvent(self,event):
+        r"""
+            移動時のイベント動作
+        """
+        super(Renamer,self).mouseMoveEvent(event)
+        _VM_.getVariable('nowFocusLineEdit').moveGui()
+        
     ## --------------------------------------------------------------------
     ## setting
     
@@ -952,7 +1136,8 @@ class Renamer(sg.ScrolledWidget):
             ラインエディットの入力情報をセット
             外部のウィジェットでも実行するため関数化
         """
-        [_t.setText(_t.address['initialize']) for _t in self.__textWidgetList]
+        ([_t.setText(_t.text() if _t.address['initialize']==None
+            else _t.address['initialize']) for _t in self.__textWidgetList])
     
     def buttonResized(self,event=None,ratio=60):
         r"""
@@ -974,6 +1159,9 @@ class Renamer(sg.ScrolledWidget):
             about情報の取得
         """
         return fc.getAboutInfo()
+        
+    ## --------------------------------------------------------------------
+    ## func
 
 ###############################################################################
 ## END

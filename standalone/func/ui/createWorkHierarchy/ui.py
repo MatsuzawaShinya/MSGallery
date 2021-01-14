@@ -23,9 +23,10 @@ from ... import settings as st
 from msAppTools.settingFiles import systemGeneral as sg
 
 QtWidgets,QtCore,QtGui = sg.QtWidgets,sg.QtCore,sg.QtGui
-_VM_ = sg.VariableManagement()
-SM   = fc.SubMethod()
-SPSL = st.StandalonePathStoreList(fc.getModuleName())
+_VM_  = sg.VariableManagement()
+_COL_ = sg.ss.ColorStyleManagement()
+SM    = fc.SubMethod()
+SPSL  = st.StandalonePathStoreList(fc.getModuleName())
 
 ###############################################################################
 ## layout class
@@ -419,9 +420,10 @@ class CreateTabWidget(sg.ScrolledWidget):
             return
         orderlist = sorted(
             [v['order'] for v in prefdata.values() if v.get('order')])
-        op = _VM_.getVariable('orderParam')
-        result = (int(op.text()) in orderlist)
-        op.setStyleSheet('QLineEdit{color:%s;}'%('#E00' if result else '#111'))
+        op     = _VM_.getVariable('orderParam')
+        result = (int(op.text()) in orderlist) if op.text() else None
+        op.setStyleSheet('QLineEdit{color:%s;}'%(
+            '#E00' if result else '#E0E' if result is None else '#111'))
         return result
     
     ## ------------------------------------------------------------------------
@@ -885,7 +887,7 @@ class EditTabWidget(sg.ScrolledWidget):
         pb = _VM_.setVariable(
             'editExecuteButton',QtWidgets.QPushButton('Execute Edit'))
         pb.setStyleSheet('QPushButton{color:#FFF;%s}'%(
-            sg.ss.GRD_C_VERTICAL%('#888','#222')))
+            _COL_.GRD_C_VERTICAL%('#888','#222')))
         pb.setFixedHeight(32)
         pb.clicked.connect(self.editExecute)
         self.layout.addWidget(pb,1)
@@ -1209,42 +1211,7 @@ class CreateWorkHierarchy(sg.ScrolledWidget):
         r"""
             タブのスタイルシートをセット
         """
-        _VM_.getVariable('tabWidget').setStyleSheet(
-            'QTabWidget::pane{'
-                'border: 3px solid #252525;'
-            '}'
-            'QTabWidget::tab-bar{'
-                'left: 2px;'
-            '}'
-            'QTabBar::tab{'
-                'color: #DDD;'
-                'background: qlineargradient('
-                    'x1:0, y1:0, x2:0, y2:1, stop:0 #666, stop:1 #333'
-                ');'
-                'min-width: 22ex;'
-                'padding: 4px;'
-                'border-top-left-radius:1px; border-top-right-radius:1px;'
-            '}'
-            'QTabBar::tab:selected, QTabBar::tab:hover {'
-                'background-color:qlineargradient'
-                    '(x1:0, y1:0, x2:0, y2:1, stop:0 #888, stop:1 #555'
-                ')'
-            '}'
-            'QTabBar::tab:selected {'
-                'margin-left: 1px; margin-right: 1px;'
-            '}'
-            'QTabBar::tab:first:selected {'
-                'margin-left: 0px;'
-            '}'
-            'QTabBar::tab:last:selected {'
-                'margin-right: 0px;'
-            '}'
-            'QTabBar::tab:pressed {'
-                'background: qlineargradient('
-                    'x1:0, y1:0, x2:0, y2:1, stop:0 #555, stop:1 #222'
-                ');'
-            '}'
-        )
+        _VM_.getVariable('tabWidget').setStyleSheet(_COL_.getCommonTabColor())
     
     def getAboutData(self):
         r"""

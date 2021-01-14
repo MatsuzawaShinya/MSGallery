@@ -11,6 +11,7 @@ import sys
 import json
 import time
 import traceback
+import subprocess
 from distutils.util import strtobool
 
 ## ----------------------------------------------------------------------------
@@ -40,6 +41,7 @@ class MainWindow(sg.EventBaseWidget):
         super(MainWindow,self).__init__(parent)
         
         self._dict = WSI.getSettingInfo()
+        self._guiName = guiName
         
         ## --------------------------------------------------------------------
         ## pre process
@@ -68,7 +70,7 @@ class MainWindow(sg.EventBaseWidget):
         else:
             _d = self._dict['default']
             self.startupFlag = True
-            
+
         self.setWindowFlags(sg._setWindowFlagsDict[_d['windowFlag']])
         
         self.__titleName = _d['name']
@@ -220,12 +222,38 @@ class MainWindow(sg.EventBaseWidget):
             キープレス時のイベント情報(オーバーライド)
         """
         super(MainWindow,self).keyPressEvent(event)
+
+        key   = self.getKeyType(event)
+        mask  = self.getKeyMask()
+        mask2 = self.getKeyMask2()
         
-        key,mask = self.getKeyType(event),self.getKeyMask()
-        if (key['press'] == 'F1') and self.debugFlag:
-            sg.openExplorer(self.PSL.msAppToolsPath)
-        else:
-            pass
+        # Debug/OFF
+        if not self.debugFlag:
+            maskCA = mask2(['ctrl','alt'])
+            EXE = (lambda type,opentype=True:sg.openExplorer(sg.toBasePath(
+                WSI.getEachPythonFile(self._guiName,type)),opentype))
+                
+            # XXX/ui.pyを開く
+            if (key['press']=='F1') and key['mod1']==maskCA:
+                EXE('ui')
+            # XXX/func.pyを開く
+            elif (key['press']=='F2') and key['mod1']==maskCA:
+                EXE('func')
+            # XXX/__init__.pyを開く
+            elif (key['press']=='F3') and key['mod1']==maskCA:
+                EXE('__init__')
+            # XXX folderを開く
+            elif (key['press']=='F4') and key['mod1']==maskCA:
+                EXE('__init__',False)
+            else:
+                pass
+        # Debug/ON
+        else:        
+            # roamingフォルダを開く
+            if (key['press'] == 'F1'):
+                sg.openExplorer(self.PSL.msAppToolsPath)
+            else:
+                pass
     
     def mouseMoveEvent(self,event):
         r"""

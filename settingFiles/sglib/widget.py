@@ -73,7 +73,9 @@ _defaultFrame = (QtCore.Qt.Window|QtCore.Qt.FramelessWindowHint)
 _setWindowFlagsDict = {
     ''              : _defaultFrame,
     'default'       : _defaultFrame,
+    'True'          : (_defaultFrame|QtCore.Qt.WindowStaysOnTopHint),
     'tophint=True'  : (_defaultFrame|QtCore.Qt.WindowStaysOnTopHint),
+    'False'         : (_defaultFrame|QtCore.Qt.WindowFlags()),
     'tophint=False' : (_defaultFrame|QtCore.Qt.WindowFlags()),
 }
 
@@ -277,6 +279,10 @@ class EventBaseWidget(QtWidgets.QWidget):
         self.mc        = QtCore.QPoint(0,0)
         self.mouseType = None
         
+        self.setMoveFlag(True)
+        self.setResizeFlag(True)
+        self.setAboutFlag(True)
+        
         self.setAcceptDrops(True)
         self.setWindowFlags(_setWindowFlagsDict[''])
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
@@ -320,22 +326,29 @@ class EventBaseWidget(QtWidgets.QWidget):
         super(EventBaseWidget,self).keyPressEvent(event)
         
         key,mask = self.getKeyType(event),self.getKeyMask()
-        # print(2222,QtCore.Qt.Key_Meta==key['key'])
         
+        # Default
         if (key['press'] == 'F1'):
             pass
+        # ウインドウサイズをプリント
         elif (key['mod1'] == mask['ctrl,shift'] and key['press'] == 'F10'):
             self.printRect()
+        # 最前面表示をオン
         elif (key['mod1'] == mask['ctrl']  and key['press'] == 'F11'):
             self.frontmostSwitch(True)
+        # 最前面表示をオフ
         elif (key['mod1'] == mask['shift'] and key['press'] == 'F11'):
             self.frontmostSwitch(False)
+        # デバッグモードをオン
         elif (key['mod1'] == mask['ctrl']  and key['press'] == 'F12'):
+        # デバッグモードをオフ
             self.setDebugFlag(True)
         elif (key['mod1'] == mask['shift'] and key['press'] == 'F12'):
             self.setDebugFlag(False)
+        # 
         elif (key['mod1'] == mask['ctrl']  and key['press'] == 'F5'):
             print(1111)
+        # 終了
         elif (key['press'] == 'Esc'):
             self._WEA = WidgetEventAction()
             self._WEA.setSelf(self)
@@ -374,25 +387,27 @@ class EventBaseWidget(QtWidgets.QWidget):
         e_x ,e_y  = event.x(),event.y()
         eg_x,eg_y = event.globalX(),event.globalY()
         if self.mouseType == 1:
-            if self.pressFlag:
-                self.move(self.mapToParent(event.pos()-self.mc))
-            if self.debugFlag:
-                w = 'W:{}-{}={}'.format(eg_x,e_x,(eg_x-e_x))
-                h = 'H:{}-{}={}'.format(eg_y,e_y,(eg_y-e_y))
-                print('\t{},{}'.format(w.ljust(16,' '),h))
+            if self.moveFlag:
+                if self.pressFlag:
+                    self.move(self.mapToParent(event.pos()-self.mc))
+                if self.debugFlag:
+                    w = 'W:{}-{}={}'.format(eg_x,e_x,(eg_x-e_x))
+                    h = 'H:{}-{}={}'.format(eg_y,e_y,(eg_y-e_y))
+                    print('\t{},{}'.format(w.ljust(16,' '),h))
         elif self.mouseType == 2:
             pass
         elif self.mouseType == 3:
-            if self.o_posX and self.o_posY:
-                s_posX,s_posY = (e_x-self.o_posX),(e_y-self.o_posY)
-                self.resize(
-                    self.rect().width() +s_posX,
-                    self.rect().height()+s_posY
-                )
-                if self.debugFlag:
-                    w = 'W:{}-{}={}'.format(e_x,self.o_posX,s_posX)
-                    h = 'H:{}-{}={}'.format(e_y,self.o_posY,s_posY)
-                    print('\t{},{}'.format(w.ljust(16,' '),h))
+            if self.resizeFlag:
+                if self.o_posX and self.o_posY:
+                    s_posX,s_posY = (e_x-self.o_posX),(e_y-self.o_posY)
+                    self.resize(
+                        self.rect().width() +s_posX,
+                        self.rect().height()+s_posY
+                    )
+                    if self.debugFlag:
+                        w = 'W:{}-{}={}'.format(e_x,self.o_posX,s_posX)
+                        h = 'H:{}-{}={}'.format(e_y,self.o_posY,s_posY)
+                        print('\t{},{}'.format(w.ljust(16,' '),h))
         else:
             pass
         self.o_posX,self.o_posY = e_x,e_y
@@ -445,16 +460,40 @@ class EventBaseWidget(QtWidgets.QWidget):
                 print('.toString()   ={}'.format(p.toString()))
     
     ## ------------------------------------------------------------------------
-    ## Func
+    ## Setting
+    
+    def setMoveFlag(self,flag=None):
+        r"""
+            ウィジェット/moveFlag設定
+            Noneの場合状態を返す
+        """
+        if flag is None:
+            return self.moveFlag
+        self.moveFlag = flag
+        
+    def setResizeFlag(self,flag=None):
+        r"""
+            ウィジェット/resizeFlag設定
+            Noneの場合状態を返す
+        """
+        if flag is None:
+            return self.resizeFlag
+        self.resizeFlag = flag
+    
+    def setAboutFlag(self,flag):
+        r"""
+            ウィジェット/AboutUIオープンFlag設定
+            Noneの場合状態を返す
+        """
+        if flag is None:
+            return self.aboutFlag
+        self.aboutFlag = flag
     
     def setPaintEventColor(self,r,g,b,a):
         r"""
             ウィジェットバックグラウンドカラーの設定
         """
         self.wincolor = [r,g,b,a]
-    
-    ## ------------------------------------------------------------------------
-    ## Func
     
     def setDebugFlag(self,value=True):
         r"""
@@ -479,18 +518,21 @@ class EventBaseWidget(QtWidgets.QWidget):
         r"""
             guiサイズをプリント
         """
-        print('W:{}\nH:{}'.format(self.rect().width(),self.rect().height()))
+        print('W:{} H:{}'.format(self.rect().width(),self.rect().height()))
     
-    def frontmostSwitch(self,switch=True):
+    def frontmostSwitch(self,
+        switch=True,alternativeWidget=None,showFlag=True):
         r"""
             最前面を保持するかどうかの切り替え関数
         """
-        self.setWindowFlags(
+        widget = alternativeWidget if alternativeWidget else self
+        widget.setWindowFlags(
             _setWindowFlagsDict['tophint={}'.format(
-                'True' if switch else 'False')]
-        )
-        self.show() # 再描画しないと反映されない
-        print(u'+ WindowStaysOnTopHint = {}'.format(switch))
+                'True' if switch else 'False')])
+        if showFlag:
+            widget.show() # 再描画しないと反映されない
+        print(u'+ WindowStaysOnTopHint')
+        print(u'  => {} / {}'.format(widget,str(switch)))
     
     def setOpenWidgetInfo(self,titleName):
         r"""
@@ -536,16 +578,6 @@ class EventBaseWidget(QtWidgets.QWidget):
     
     ## ------------------------------------------------------------------------
     ## menu func
-    
-    def toSettings(self,obj,title,author,version,update,release):
-        r"""
-            メインレイアウトの部分で文字設定を送るための関数
-        """
-        obj.main.title.setText(title)
-        obj.main.author.setText ('Author : {}'.format(author))
-        obj.main.version.setText('Version : {}'.format(version))
-        obj.main.update.setText ('Last update : {}'.format(update))
-        obj.main.release.setText('Release : {}'.format(release))
         
     def exeAbout(self):
         r"""
@@ -557,11 +589,10 @@ class EventBaseWidget(QtWidgets.QWidget):
             about = showWindow(AboutUI,wfFlag=False)
             about.setGeometryPosition(_x,_y)
         else:
-            about = AboutUI()
+            about = AboutUI(self)
             about.show()
             about.setGeometryPosition(_x,_y)
-        self.toSettings(
-            obj     = about,
+        about.toSettings(
             title   = self.title,
             author  = self.author,
             version = self.version,
@@ -573,10 +604,20 @@ class EventBaseWidget(QtWidgets.QWidget):
         r"""
             ポップメニュー窓口(Ctrl+Shit+Alt)
         """
+        if not self.aboutFlag:
+            return
         if self.getKeyType()['mod2'] == self.getKeyMask()['ctrl,shift,alt']:
             menu = QtWidgets.QMenu()
-            menu.addAction('About', self.exeAbout)
+            menu.addAction('Open About view', self.exeAbout)
             menu.exec_(QtGui.QCursor.pos())
+    
+    ## ------------------------------------------------------------------------
+    ## other func
+    
+    def _testPrint(self,msg=''):
+        r"""
+        """
+        print(u'>>>> TEST PRINT. {}'.format(msg))
     
 ## ----------------------------------------------------------------------------
     
@@ -1432,16 +1473,21 @@ class SuggestView(EventBaseWidget):
         """
         super(SuggestView,self).__init__(parent)
         
+        self._moveResizeList = []
+        
         self.setTextLineWidget()
         self.setSuggestItemList()
         self.eachMovePositioning(self.emptyFunc)
+        self.setParentWindowFlags()
         
         self.parentSuggestFunc = self.suggestInsert
         self.wincolor = [8,8,32,192]
-        self.resize(200,240)
+        self.winsize  = [160,220]
+        self.resize(*self.winsize)
         self.setWindowFlags(_setWindowFlagsDict['tophint=True'])
         
         self.setListView(ListView())
+        __view = self.getListView()
         __view = self.getListView()
         self.setLietViewStyleSheet()
         __view.setAttribute(QtCore.Qt.WA_ShowWithoutActivating)
@@ -1504,7 +1550,7 @@ class SuggestView(EventBaseWidget):
             self.exeSuggestInsert()
         else:
             pass
-    
+
     ## ------------------------------------------------------------------------
     ## setting
     
@@ -1554,14 +1600,29 @@ class SuggestView(EventBaseWidget):
             itemindex,QtCore.QItemSelectionModel.ClearAndSelect
         )
     
+    def setParentWindowFlags(self,widget=None):
+        r"""
+            setWindowFlagsを連携させるウィジェットセットメソッド
+        """
+        self.windowFlagParentWidget = widget
+        
+    def getParentWindowFlags(self):
+        r"""
+            setWindowFlagsを連携させるウィジェットセットメソッド
+        """
+        return self.windowFlagParentWidget
+    
     ## ------------------------------------------------------------------------
     ## common func
     
     def getQModelIndexList(self):
         r"""
+            選択されたリスト項目の単一取得
+            何も選択サれてない場合はNoneを返す
         """
-        return ([x for x in
-            self.getListView().selectionModel().selectedIndexes()])[0]
+        listdata = ([x for x in
+            self.getListView().selectionModel().selectedIndexes()])
+        return listdata[0] if listdata else None
     
     def emptyFunc(self):
         r"""
@@ -1688,8 +1749,8 @@ class SuggestView(EventBaseWidget):
         self.eachMovePositioning()(textwidget)
         self.exeShow()
         # ウィンドウフォーカスは常にテキストラインに固定
-        textwidget.setFocus()
         textwidget.activateWindow()
+        textwidget.setFocus()
         
     def suggestInsert(self):
         r"""
@@ -1712,6 +1773,160 @@ class SuggestView(EventBaseWidget):
             return
         now_textLine.setText(now)
         self.exeHide()
+
+## ----------------------------------------------------------------------------
+
+class FlodingFrameLayout(QtWidgets.QWidget):
+    r"""
+        折畳式のフレームウィジェットを作成するクラス
+    """
+    def __init__(self,parent=None):
+        r"""
+        """
+        super(FlodingFrameLayout,self).__init__(parent)
+        
+        self.framewidget = QtWidgets.QFrame(self)
+        self.collapse    = False
+        self.vlayout     = QtWidgets.QVBoxLayout(self.framewidget)
+        
+        self.bar = QtWidgets.QToolButton()
+        self.bar.setFixedHeight(16)
+        self.bar.clicked.connect(self.setCollapse)
+        self.bar.setStyleSheet('QToolButton{color:#FFF;%s}'%(
+            ss.GRD_C_VERTICAL%('#555','#444')))
+        
+        self.editWidget = QtWidgets.QWidget()
+        self.editLayout = QtWidgets.QVBoxLayout(self.editWidget)
+        
+        self.vlayout.addWidget(self.editWidget)
+        self.vlayout.addWidget(self.bar,alignment=QtCore.Qt.AlignCenter)
+        
+        ## ------------------------------------------------
+        ## post setting
+        
+        self.setDirectionArrow(false='up')
+        self.setCollapse()
+    
+    ## ----------------------------------------------------
+    ## info
+    
+    def setVariableSendInfo(self):
+        r"""
+            VariableManagementにセットする情報を辞書形式で管理
+            アクセスしたら辞書情報を取得する
+        """
+        CHECKHASATTR = (lambda strw:
+            eval('self.{}'.format(strw)) if hasattr(self,strw) else None)
+        return {
+            'arrowToolButton' : CHECKHASATTR('bar'),
+            'frameWidget'     : CHECKHASATTR('framewidget'),
+            'editLayout'      : CHECKHASATTR('editLayout'),
+        }
+    
+    ## ----------------------------------------------------
+    ## setting
+    
+    def setLocalVariable(self,VM=None):
+        r"""
+            systemGeneral/VariableManagementを受け取り共有して使用できるように
+            クラス内のコア変数をセットする
+        """
+        if VM is None:
+            if not hasattr(self,'_VM_'):
+                self._VM_ = None
+                return
+        else:
+            typestr = str(type(VM))
+            if not 'class' in typestr or not 'VariableManagement' in typestr:
+                return
+            self._VM_ = VM
+            ([self._VM_.setVariable(k,v)
+                for k,v in self.setVariableSendInfo().items()])
+        
+    def setCollapse(self):
+        r"""
+            開閉状態の切り替え
+        """
+        self.toggleCollapse()
+        self.setArrow()
+        self.changeWidgetView()
+    
+    def toggleCollapse(self):
+        r"""
+            開閉状態のフラグ変更
+        """
+        self.collapse = not self.collapse
+    
+    def setArrow(self):
+        r"""
+            アロー方向タイプの変更
+        """
+        self.bar.setArrowType(self.directionArrow[self.collapse])
+    
+    def changeWidgetView(self):
+        r"""
+            ウィジェットの可視化切り替え
+        """
+        self.editWidget.setHidden(self.collapse)
+    
+    def setDirectionArrow(self,true=None,false=None):
+        r"""
+            表示/非表示時の矢印方向を指定
+        """
+        dd = {1:'left',2:'up',3:'right',4:'down'}
+        arrowdict = {
+            dd[1] : QtCore.Qt.LeftArrow,
+            dd[2] : QtCore.Qt.UpArrow,
+            dd[3] : QtCore.Qt.RightArrow,
+            dd[4] : QtCore.Qt.DownArrow,
+        }
+        self.directionArrow = {
+            True  : arrowdict[dd[3]],
+            False : arrowdict[dd[4]],
+        }
+        
+        def valueCheck(val):
+            r"""
+                変数チェック
+                指定のstr型だった場合小文字にして返す
+            """
+            if not val:
+                return False
+            if not isinstance(val,str):
+                return False
+            res = val.lower()
+            if not res in list(dd.values()):
+                return False
+            return res
+            
+        for v,b in ([true,True],[false,False]):
+            buf = valueCheck(v)
+            if buf:
+                self.directionArrow.update({b:arrowdict[buf]})
+    
+    def addWidgets(self,widget):
+        r"""
+            ベースレイアウトにウィジェットをセット
+        """
+        self.editLayout.addWidget(widget)
+        
+    def addLayouts(self,layout):
+        r"""
+            ベースレイアウトにレイアウトをセット
+        """
+        self.editLayout.addLayout(layout)
+        
+    def getFrame(self):
+        r"""
+            フレームウィジェット取得
+        """
+        return self.framewidget
+        
+    def getEditLayout(self):
+        r"""
+            エディットウィジェット取得
+        """
+        return self.editLayout
 
 ## ----------------------------------------------------------------------------
 
@@ -2044,6 +2259,14 @@ class AboutMainUI(ScrolledWidget):
         r"""
             レイアウトコマンド記述
         """
+        ## ------------------------------------------------
+        ## setting
+        
+        QL = QtWidgets.QLabel
+        
+        ## ------------------------------------------------
+        ## main
+        
         reflect  = ''
         reflect += 'QScrollArea{color:#FFF;background-color:#444;}'
         reflect += 'QLabel{color:#FFF;qproperty-alignment:AlignCenter;}'
@@ -2054,21 +2277,39 @@ class AboutMainUI(ScrolledWidget):
             reflect += ('%s::sub-line:%s{%s}'%(QSB,vh,_style))
             reflect += ('%s::add-line:%s{%s}'%(QSB,vh,_style))
         self.setStyleSheet(reflect)
-        self.title = QtWidgets.QLabel('TITLE')
+        self.title = QL('TITLE')
         self.title.setStyleSheet(
             'QLabel{font-size:20px;font-family:Cambria;background-color:#000;}')
-        self.author  = QtWidgets.QLabel('AUTHOR')
-        self.version = QtWidgets.QLabel('VERSION')
-        self.release = QtWidgets.QLabel('RELEASE')
-        self.update  = QtWidgets.QLabel('UPDATE')
+        self.title.setContentsMargins(0,2,0,2)
+        self.author  = QL('AUTHOR')
+        self.version = QL('VERSION')
+        self.release = QL('RELEASE')
+        self.update  = QL('UPDATE')
         
         layout = QtWidgets.QVBoxLayout(parent)
-        layout.setSpacing(7)
-        layout.addWidget(self.title)
-        layout.addWidget(self.author)
-        layout.addWidget(self.version)
-        layout.addWidget(self.release)
-        layout.addWidget(self.update)
+        layout.setSpacing(10)
+        layout.addWidget(self.title) 
+        
+        hLayout     = QtWidgets.QHBoxLayout()
+        lVL = QtWidgets.QVBoxLayout()
+        lVL.addWidget(QL('Author :'))
+        lVL.addWidget(QL('Version :'))
+        lVL.addWidget(QL('LastUpdate :'))
+        lVL.addWidget(QL('Release :'))
+        ([lVL.itemAt(i).setAlignment(QtCore.Qt.AlignRight)
+            for i in range(lVL.count())])
+        hLayout.addLayout(lVL,stretch=10)
+        
+        rVL = QtWidgets.QVBoxLayout()
+        rVL.addWidget(self.author)
+        rVL.addWidget(self.version)
+        rVL.addWidget(self.release)
+        rVL.addWidget(self.update)
+        ([rVL.itemAt(i).setAlignment(QtCore.Qt.AlignLeft)
+            for i in range(rVL.count())])
+        hLayout.addLayout(rVL,stretch=11)
+        
+        layout.addLayout(hLayout)
 
 ## ----------------------------------------------------------------------------
 
@@ -2082,8 +2323,10 @@ class AboutUI(EventBaseWidget):
         """
         super(AboutUI,self).__init__(parent)
         
-        self.debugFlag = False
-        
+        self.debugFlag  = False
+        # AboutUIはリサイズ不可/AboutUIメニュー非表示設定
+        self.setResizeFlag(False)
+        self.setAboutFlag(False)
         # windowの枠を削除
         self.setWindowFlags(_setWindowFlagsDict['tophint=True'])
         # 透明化
@@ -2097,7 +2340,7 @@ class AboutUI(EventBaseWidget):
         self.update  = '2018/07/13'
         
         self.setWindowTitle(self.title)
-        self._w,self._h = 300,150
+        self._w,self._h = 320,160
         self.resize(self._w,self._h)
         
         self.main = AboutMainUI(self)
@@ -2112,11 +2355,30 @@ class AboutUI(EventBaseWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.main)
     
+    ## ----------------------------------------------------
+    ## setting
+    
+    def toSettings(self,title,author,version,update,release):
+        r"""
+            メインレイアウトの部分で文字設定を送るための関数
+        """
+        self.main.title.setText(title)
+        self.main.author.setText (author)
+        self.main.version.setText(version)
+        self.main.update.setText (update)
+        self.main.release.setText(release)
+    
+    ## ----------------------------------------------------
+    ## event
+    
     def mouseDoubleClickEvent(self,event):
         r"""
             ダブルクリックのイベント
         """
         self.closeAction.setCloseTimeElapsed()
+    
+    ## ----------------------------------------------------
+    ## func
     
     def setGeometryPosition(self,x,y):
         r"""

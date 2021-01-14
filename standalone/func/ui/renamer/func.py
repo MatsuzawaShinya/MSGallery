@@ -34,10 +34,10 @@ def getAboutInfo():
     """
     return {
         'title'   : getModuleName(),
-        'version' : '2.1.s1',
+        'version' : '2.2.1',
         'author'  : st._author,
         'release' : '2019/04/26',
-        'update'  : '2020/12/30',
+        'update'  : '2021/01/13',
     }
 
 ###############################################################################

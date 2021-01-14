@@ -77,12 +77,7 @@ NOW_COMPANY = 'GOONEYS'
 _ESTIMATION = MSINFO.getEstimationName()
 
 _defaultFrame = (QtCore.Qt.Window|QtCore.Qt.FramelessWindowHint)
-_setWindowFlagsDict = {
-    ''              : _defaultFrame,
-    'default'       : _defaultFrame,
-    'tophint=True'  : (_defaultFrame|QtCore.Qt.WindowStaysOnTopHint),
-    'tophint=False' : (_defaultFrame|QtCore.Qt.WindowFlags()),
-}
+_setWindowFlagsDict = sgwidget._setWindowFlagsDict
 
 msAppToolsName = os.path.basename(os.path.dirname(os.path.dirname(path())))
 
@@ -259,6 +254,16 @@ class SuggestView(sgwidget.SuggestView):
         r"""
         """
         super(SuggestView,self).__init__(parent)
+
+class FlodingFrameLayout(sgwidget.FlodingFrameLayout):
+    r"""
+        << sgwidget継承 >>
+        折畳式のフレームウィジェットを作成するクラス
+    """
+    def __init__(self,parent=None):
+        r"""
+        """
+        super(FlodingFrameLayout,self).__init__(parent)
 
 class SystemTrayIcon(sgwidget.SystemTrayIcon):
     r"""
@@ -861,6 +866,33 @@ def createZipFile(srcpath,dstpath,dstname,createMode=1,**keywords):
     return success
         
 ###############################################################################
+## - Desktop
+
+class DesktopInfo(object):
+    r"""
+        デスクトップ情報管理クラス
+    """
+    def __init__(self):
+        r"""
+        """
+        self.__qdesktopwidget = QtWidgets.QDesktopWidget()
+        
+    def getWidgetDesktopSize(self,widget,listtype=False):
+        r"""
+            指定したウィジェットがあるディスプレイのQRect情報を取得
+        """
+        rect = self.__qdesktopwidget.availableGeometry(
+            self.getWidgetDesktopNumber(widget))
+        return (rect if not listtype else
+            [rect.x(),rect.y(),rect.width(),rect.height()])
+            
+    def getWidgetDesktopNumber(self,widget):
+        r"""
+            指定したウィジェットが存在するディスプレイナンバーを取得
+        """
+        return self.__qdesktopwidget.screenNumber(widget)
+
+###############################################################################
 ## - System
 
 def setDontWriteBytecode(val):
@@ -1011,6 +1043,14 @@ def returnRandomString(
     """
     return ''.join([random.choice(word) for i in range(length)])
 
+def connectStringDigits(prefix='',index=[0,1],suffix='',padding=0,addword='0'):
+    r"""
+        文字+インデント数+文字を接合しリストで返す
+        生成する文字列数はindex回数分行う
+    """
+    return ([('{}{:%s>%s}{}'%(addword,padding)).format(
+        prefix,str(i),suffix) for i in range(index[0],index[1]+1)])
+
 def toEncode(w,code='utf-8'):
     r"""
         encode(unicode -> bytes)への変換
@@ -1078,7 +1118,8 @@ def alphabeticNumberConversion(word,output=True):
     _E1 = _D['ascii_uppercase']
     _E2 = _D['ascii_lowercase']
     
-    if isinstance(word,bytes):
+    # if isinstance(word,bytes):
+    if isinstance(word,str):
         _res = re.search('^[A-Za-z]+$',word)
         if _res:
             _RETURN = 0
@@ -1130,8 +1171,9 @@ def importModuleList(sortFlag=True):
     # (str(m).split(' ')[-2].replace("'",'').replace('"','')[0:-1])
     # (str(m).split(' ')[-2][1:-2].replace("'",'').replace('"',''))
     
-    L.sort() if sortFlag else None
-    return L
+    # L.sort() if sortFlag else None
+    # return L
+    return L.sort() if sortFlag else L
 
 def getEnvironmentVariable(sort=True,printFlag=False,target=None):
     r"""
@@ -1159,7 +1201,7 @@ def getEnvironmentVariable(sort=True,printFlag=False,target=None):
             print('Name : {}\nItem : {}\n'.format(n,i))
     return returnList if not targetList else targetList
 
-def openExplorer(path):
+def openExplorer(path,fileflag=False):
     r"""
         指定したパスのエクスプローラーフォルダを開く
         ファイルが指定されていた場合はそのフォルダを開く
@@ -1170,9 +1212,9 @@ def openExplorer(path):
             print(u'+ パスに日本語が含まれている為フォルダを開けませんでした。')
             FLAG = False
         else:
-            subprocess.Popen(['explorer',
-                toReversePath(os.path.dirname(p) if os.path.isfile(p) else p)
-            ])
+            targetpath = toReversePath(
+                os.path.dirname(p) if os.path.isfile(p) and not fileflag else p)
+            subprocess.Popen(['explorer',targetpath])
             FLAG = True
     except:
         traceback.print_exc()
@@ -1425,7 +1467,8 @@ def getImagePixelColor(imagePath,w,h,type='RGB'):
         cmyk[0] == 255 and cmyk[1] == 40  and
         cmyk[2] == 0   and cmyk[3] == 198
     ):
-        print(u'+ 指定したピクセル数の上限か下限がファイルサイズ外の可能性があります。')
+        print(u'+ 指定したピクセル数の上限か'
+              u'下限がファイルサイズ外の可能性があります。')
         print(u'\tw=[max:%s,now=%s]'%(maxSize[0],w))
         print(u'\th=[max:%s,now=%s]'%(maxSize[1],h))
         return False

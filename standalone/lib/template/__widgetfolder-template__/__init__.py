@@ -11,7 +11,8 @@ import os
 ## ----------------------------------------------------------------------------
 ## local lib
 
-from .  import ui,func
+from .  import ui
+from .  import func
 from .. import lib as parentlib
 
 WSI = parentlib.WidgetSettingInfo()
